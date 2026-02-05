@@ -4,7 +4,7 @@
 repos:
   # General file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -25,9 +25,9 @@ repos:
       - id: black
         args: ['--line-length=100']
 
-  # Python linting with Ruff
+  # Python linting with Ruff (keep in sync with CI and pyproject.toml)
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.15
+    rev: v0.15.0
     hooks:
       # Run the linter
       - id: ruff
