@@ -1,21 +1,20 @@
 """API router for organizations."""
 
 import json
-import httpx
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-
 from sqlalchemy.orm import Session
 
 from app.db.models import UserRole
-from app.dependencies import get_db, CurrentUser, CurrentTenantId
+from app.dependencies import CurrentTenantId, CurrentUser, get_db
 from app.organizations.schemas import (
     OrganizationCreate,
-    OrganizationUpdate,
     OrganizationResponse,
     OrganizationSearchResult,
+    OrganizationUpdate,
     OrgJoinRequestCreate,
     OrgJoinRequestResponse,
     TenantGeoUpdate,
@@ -63,6 +62,7 @@ async def search_organizations(
 
 # University search helpers (for registration autocomplete)
 
+
 def _load_local_universities() -> list[dict]:
     """Load local universities fallback data."""
     data_file = Path(__file__).parent.parent / "data" / "universities.json"
@@ -72,9 +72,7 @@ def _load_local_universities() -> list[dict]:
     return []
 
 
-def _search_local_universities(
-    query: str, country: Optional[str] = None
-) -> list[dict]:
+def _search_local_universities(query: str, country: str | None = None) -> list[dict]:
     """Search local universities data."""
     universities = _load_local_universities()
     query_lower = query.lower()
@@ -93,7 +91,7 @@ def _search_local_universities(
 @router.get("/universities/search")
 async def search_universities(
     q: str = Query(..., min_length=2, description="University name search query"),
-    country: Optional[str] = Query(None, description="Country to filter by"),
+    country: str | None = Query(None, description="Country to filter by"),
 ):
     """Proxy endpoint for university search to avoid CORS issues.
 
@@ -137,10 +135,7 @@ async def create_organization(
     The creating lab becomes the organization admin.
     """
     if current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=403,
-            detail="Only lab admins can create organizations"
-        )
+        raise HTTPException(status_code=403, detail="Only lab admins can create organizations")
 
     try:
         org = service.create_organization(data, str(tenant_id))
@@ -160,8 +155,7 @@ async def update_organization(
     tenant = current_user.tenant
     if not tenant.is_org_admin or tenant.organization_id != org_id:
         raise HTTPException(
-            status_code=403,
-            detail="Only organization admins can update the organization"
+            status_code=403, detail="Only organization admins can update the organization"
         )
 
     org = service.update_organization(org_id, data)
@@ -172,7 +166,10 @@ async def update_organization(
 
 # Join Request endpoints
 
-@router.post("/join-requests", response_model=OrgJoinRequestResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/join-requests", response_model=OrgJoinRequestResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_join_request(
     data: OrgJoinRequestCreate,
     db: Annotated[Session, Depends(get_db)],
@@ -182,8 +179,7 @@ async def create_join_request(
     """Request to join an organization (lab admin only)."""
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
-            status_code=403,
-            detail="Only lab admins can request to join organizations"
+            status_code=403, detail="Only lab admins can request to join organizations"
         )
 
     service = OrgJoinRequestService(db, str(tenant_id), current_user.id)
@@ -217,8 +213,7 @@ async def approve_join_request(
     request = service.approve_request(request_id)
     if not request:
         raise HTTPException(
-            status_code=404,
-            detail="Request not found or you don't have permission"
+            status_code=404, detail="Request not found or you don't have permission"
         )
     return service._request_to_response(request)
 
@@ -235,13 +230,13 @@ async def reject_join_request(
     request = service.reject_request(request_id)
     if not request:
         raise HTTPException(
-            status_code=404,
-            detail="Request not found or you don't have permission"
+            status_code=404, detail="Request not found or you don't have permission"
         )
     return service._request_to_response(request)
 
 
 # Tenant geographic info endpoints
+
 
 @router.put("/tenant/geo")
 async def update_tenant_geo(
@@ -253,8 +248,7 @@ async def update_tenant_geo(
     """Update lab geographic information (admin only)."""
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
-            status_code=403,
-            detail="Only lab admins can update geographic information"
+            status_code=403, detail="Only lab admins can update geographic information"
         )
 
     service = TenantGeoService(db, str(tenant_id))
@@ -277,10 +271,7 @@ async def leave_organization(
 ):
     """Remove lab from its organization (admin only)."""
     if current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=403,
-            detail="Only lab admins can leave organizations"
-        )
+        raise HTTPException(status_code=403, detail="Only lab admins can leave organizations")
 
     service = TenantGeoService(db, str(tenant_id))
     try:

@@ -1,7 +1,6 @@
 """Stock request service layer."""
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
@@ -11,13 +10,11 @@ from app.db.models import (
     StockRequest,
     StockRequestStatus,
     StockVisibility,
-    Tenant,
-    User,
 )
 from app.requests.schemas import (
     StockRequestCreate,
-    StockRequestResponse,
     StockRequestListResponse,
+    StockRequestResponse,
     StockRequestStats,
 )
 
@@ -58,9 +55,7 @@ class StockRequestService:
             created_at=request.created_at,
             updated_at=request.updated_at,
             responded_at=request.responded_at,
-            responded_by_name=(
-                request.responded_by.full_name if request.responded_by else None
-            ),
+            responded_by_name=(request.responded_by.full_name if request.responded_by else None),
         )
 
     def create_request(self, data: StockRequestCreate) -> StockRequest:
@@ -115,7 +110,7 @@ class StockRequestService:
         return request
 
     def list_outgoing_requests(
-        self, status: Optional[StockRequestStatus] = None, page: int = 1, page_size: int = 20
+        self, status: StockRequestStatus | None = None, page: int = 1, page_size: int = 20
     ) -> StockRequestListResponse:
         """List requests made by this lab.
 
@@ -145,10 +140,7 @@ class StockRequestService:
         total = query.count()
         offset = (page - 1) * page_size
         requests = (
-            query.order_by(StockRequest.created_at.desc())
-            .offset(offset)
-            .limit(page_size)
-            .all()
+            query.order_by(StockRequest.created_at.desc()).offset(offset).limit(page_size).all()
         )
 
         pages = (total + page_size - 1) // page_size
@@ -162,7 +154,7 @@ class StockRequestService:
         )
 
     def list_incoming_requests(
-        self, status: Optional[StockRequestStatus] = None, page: int = 1, page_size: int = 20
+        self, status: StockRequestStatus | None = None, page: int = 1, page_size: int = 20
     ) -> StockRequestListResponse:
         """List requests for stocks owned by this lab.
 
@@ -192,10 +184,7 @@ class StockRequestService:
         total = query.count()
         offset = (page - 1) * page_size
         requests = (
-            query.order_by(StockRequest.created_at.desc())
-            .offset(offset)
-            .limit(page_size)
-            .all()
+            query.order_by(StockRequest.created_at.desc()).offset(offset).limit(page_size).all()
         )
 
         pages = (total + page_size - 1) // page_size
@@ -208,7 +197,7 @@ class StockRequestService:
             pages=pages,
         )
 
-    def get_request(self, request_id: str) -> Optional[StockRequest]:
+    def get_request(self, request_id: str) -> StockRequest | None:
         """Get a request by ID (if user has access).
 
         Args:
@@ -237,8 +226,8 @@ class StockRequestService:
         )
 
     def approve_request(
-        self, request_id: str, response_message: Optional[str] = None
-    ) -> Optional[StockRequest]:
+        self, request_id: str, response_message: str | None = None
+    ) -> StockRequest | None:
         """Approve a stock request (owner only).
 
         Args:
@@ -262,7 +251,7 @@ class StockRequestService:
 
         request.status = StockRequestStatus.APPROVED
         request.response_message = response_message
-        request.responded_at = datetime.now(timezone.utc)
+        request.responded_at = datetime.now(UTC)
         request.responded_by_id = self.user_id
 
         self.db.commit()
@@ -270,8 +259,8 @@ class StockRequestService:
         return request
 
     def reject_request(
-        self, request_id: str, response_message: Optional[str] = None
-    ) -> Optional[StockRequest]:
+        self, request_id: str, response_message: str | None = None
+    ) -> StockRequest | None:
         """Reject a stock request (owner only).
 
         Args:
@@ -295,14 +284,14 @@ class StockRequestService:
 
         request.status = StockRequestStatus.REJECTED
         request.response_message = response_message
-        request.responded_at = datetime.now(timezone.utc)
+        request.responded_at = datetime.now(UTC)
         request.responded_by_id = self.user_id
 
         self.db.commit()
         self.db.refresh(request)
         return request
 
-    def fulfill_request(self, request_id: str) -> Optional[StockRequest]:
+    def fulfill_request(self, request_id: str) -> StockRequest | None:
         """Mark an approved request as fulfilled (owner only).
 
         Args:
@@ -329,7 +318,7 @@ class StockRequestService:
         self.db.refresh(request)
         return request
 
-    def cancel_request(self, request_id: str) -> Optional[StockRequest]:
+    def cancel_request(self, request_id: str) -> StockRequest | None:
         """Cancel a pending request (requester only).
 
         Args:
@@ -409,9 +398,7 @@ class StockRequestService:
         )
 
 
-def get_stock_request_service(
-    db: Session, tenant_id: str, user_id: str
-) -> StockRequestService:
+def get_stock_request_service(db: Session, tenant_id: str, user_id: str) -> StockRequestService:
     """Factory function for StockRequestService.
 
     Args:

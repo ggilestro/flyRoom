@@ -1,13 +1,13 @@
 """Tests for stock requests module."""
 
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 from uuid import uuid4
 
+import pytest
+from sqlalchemy.orm import Session
+
+from app.auth.utils import get_password_hash
 from app.db.models import (
     Stock,
-    StockRequest,
     StockRequestStatus,
     StockVisibility,
     Tenant,
@@ -15,7 +15,6 @@ from app.db.models import (
     UserRole,
     UserStatus,
 )
-from app.auth.utils import get_password_hash
 
 
 @pytest.fixture
@@ -95,8 +94,8 @@ class TestStockRequestService:
         self, db: Session, second_tenant: Tenant, second_user: User, public_stock: Stock
     ):
         """Test creating a stock request."""
-        from app.requests.service import StockRequestService
         from app.requests.schemas import StockRequestCreate
+        from app.requests.service import StockRequestService
 
         service = StockRequestService(db, second_tenant.id, second_user.id)
         data = StockRequestCreate(
@@ -114,8 +113,8 @@ class TestStockRequestService:
         self, db: Session, test_tenant: Tenant, test_user: User, public_stock: Stock
     ):
         """Test requesting own stock fails."""
-        from app.requests.service import StockRequestService
         from app.requests.schemas import StockRequestCreate
+        from app.requests.service import StockRequestService
 
         service = StockRequestService(db, test_tenant.id, test_user.id)
         data = StockRequestCreate(stock_id=public_stock.id)
@@ -127,8 +126,8 @@ class TestStockRequestService:
         self, db: Session, second_tenant: Tenant, second_user: User, private_stock: Stock
     ):
         """Test requesting private stock fails."""
-        from app.requests.service import StockRequestService
         from app.requests.schemas import StockRequestCreate
+        from app.requests.service import StockRequestService
 
         service = StockRequestService(db, second_tenant.id, second_user.id)
         data = StockRequestCreate(stock_id=private_stock.id)
@@ -140,8 +139,8 @@ class TestStockRequestService:
         self, db: Session, second_tenant: Tenant, second_user: User, public_stock: Stock
     ):
         """Test creating duplicate pending request fails."""
-        from app.requests.service import StockRequestService
         from app.requests.schemas import StockRequestCreate
+        from app.requests.service import StockRequestService
 
         service = StockRequestService(db, second_tenant.id, second_user.id)
         data = StockRequestCreate(stock_id=public_stock.id)
@@ -157,8 +156,8 @@ class TestStockRequestService:
         self, db: Session, second_tenant: Tenant, second_user: User, public_stock: Stock
     ):
         """Test listing outgoing requests."""
-        from app.requests.service import StockRequestService
         from app.requests.schemas import StockRequestCreate
+        from app.requests.service import StockRequestService
 
         service = StockRequestService(db, second_tenant.id, second_user.id)
         data = StockRequestCreate(stock_id=public_stock.id)
@@ -169,12 +168,17 @@ class TestStockRequestService:
         assert result.items[0].stock_id == public_stock.id
 
     def test_list_incoming_requests(
-        self, db: Session, test_tenant: Tenant, test_user: User,
-        second_tenant: Tenant, second_user: User, public_stock: Stock
+        self,
+        db: Session,
+        test_tenant: Tenant,
+        test_user: User,
+        second_tenant: Tenant,
+        second_user: User,
+        public_stock: Stock,
     ):
         """Test listing incoming requests."""
-        from app.requests.service import StockRequestService
         from app.requests.schemas import StockRequestCreate
+        from app.requests.service import StockRequestService
 
         # Create request from second tenant
         requester_service = StockRequestService(db, second_tenant.id, second_user.id)
@@ -188,12 +192,17 @@ class TestStockRequestService:
         assert result.items[0].requester_tenant_name == second_tenant.name
 
     def test_approve_request(
-        self, db: Session, test_tenant: Tenant, test_user: User,
-        second_tenant: Tenant, second_user: User, public_stock: Stock
+        self,
+        db: Session,
+        test_tenant: Tenant,
+        test_user: User,
+        second_tenant: Tenant,
+        second_user: User,
+        public_stock: Stock,
     ):
         """Test approving a request."""
-        from app.requests.service import StockRequestService
         from app.requests.schemas import StockRequestCreate
+        from app.requests.service import StockRequestService
 
         # Create request
         requester_service = StockRequestService(db, second_tenant.id, second_user.id)
@@ -208,12 +217,17 @@ class TestStockRequestService:
         assert approved.response_message == "Approved!"
 
     def test_reject_request(
-        self, db: Session, test_tenant: Tenant, test_user: User,
-        second_tenant: Tenant, second_user: User, public_stock: Stock
+        self,
+        db: Session,
+        test_tenant: Tenant,
+        test_user: User,
+        second_tenant: Tenant,
+        second_user: User,
+        public_stock: Stock,
     ):
         """Test rejecting a request."""
-        from app.requests.service import StockRequestService
         from app.requests.schemas import StockRequestCreate
+        from app.requests.service import StockRequestService
 
         # Create request
         requester_service = StockRequestService(db, second_tenant.id, second_user.id)
@@ -228,12 +242,17 @@ class TestStockRequestService:
         assert rejected.response_message == "Sorry, unavailable"
 
     def test_fulfill_request(
-        self, db: Session, test_tenant: Tenant, test_user: User,
-        second_tenant: Tenant, second_user: User, public_stock: Stock
+        self,
+        db: Session,
+        test_tenant: Tenant,
+        test_user: User,
+        second_tenant: Tenant,
+        second_user: User,
+        public_stock: Stock,
     ):
         """Test fulfilling an approved request."""
-        from app.requests.service import StockRequestService
         from app.requests.schemas import StockRequestCreate
+        from app.requests.service import StockRequestService
 
         # Create and approve request
         requester_service = StockRequestService(db, second_tenant.id, second_user.id)
@@ -251,8 +270,8 @@ class TestStockRequestService:
         self, db: Session, second_tenant: Tenant, second_user: User, public_stock: Stock
     ):
         """Test cancelling a pending request."""
-        from app.requests.service import StockRequestService
         from app.requests.schemas import StockRequestCreate
+        from app.requests.service import StockRequestService
 
         service = StockRequestService(db, second_tenant.id, second_user.id)
         data = StockRequestCreate(stock_id=public_stock.id)
@@ -262,12 +281,17 @@ class TestStockRequestService:
         assert cancelled.status == StockRequestStatus.CANCELLED
 
     def test_get_stats(
-        self, db: Session, test_tenant: Tenant, test_user: User,
-        second_tenant: Tenant, second_user: User, public_stock: Stock
+        self,
+        db: Session,
+        test_tenant: Tenant,
+        test_user: User,
+        second_tenant: Tenant,
+        second_user: User,
+        public_stock: Stock,
     ):
         """Test getting request statistics."""
-        from app.requests.service import StockRequestService
         from app.requests.schemas import StockRequestCreate
+        from app.requests.service import StockRequestService
 
         # Create a request
         requester_service = StockRequestService(db, second_tenant.id, second_user.id)

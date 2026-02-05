@@ -8,18 +8,16 @@ import csv
 import gzip
 import logging
 import re
+from collections.abc import Iterator
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Iterator, Optional
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
 # FlyBase data URL pattern
-FLYBASE_STOCKS_BASE_URL = (
-    "https://s3ftp.flybase.org/releases/current/precomputed_files/stocks/"
-)
+FLYBASE_STOCKS_BASE_URL = "https://s3ftp.flybase.org/releases/current/precomputed_files/stocks/"
 FLYBASE_STOCKS_FILENAME_PATTERN = re.compile(r"stocks_FB\d{4}_\d{2}\.tsv\.gz")
 
 # Default cache settings
@@ -83,7 +81,7 @@ class FlyBaseDataLoader:
         """
         self.data_dir = Path(data_dir)
         self.cache_max_age = cache_max_age
-        self._http_client: Optional[httpx.AsyncClient] = None
+        self._http_client: httpx.AsyncClient | None = None
 
     @property
     def cache_file(self) -> Path:
@@ -197,9 +195,7 @@ class FlyBaseDataLoader:
             self.cache_file.write_bytes(response.content)
 
             # Save metadata
-            self.metadata_file.write_text(
-                f"url={url}\ndownloaded={datetime.now().isoformat()}"
-            )
+            self.metadata_file.write_text(f"url={url}\ndownloaded={datetime.now().isoformat()}")
 
             logger.info(f"Downloaded {len(response.content)} bytes to {self.cache_file}")
             return self.cache_file
@@ -207,7 +203,7 @@ class FlyBaseDataLoader:
         except httpx.HTTPError as e:
             raise RuntimeError(f"Failed to download FlyBase stocks: {e}") from e
 
-    def parse_stocks_tsv(self, path: Optional[Path] = None) -> Iterator[dict]:
+    def parse_stocks_tsv(self, path: Path | None = None) -> Iterator[dict]:
         """Parse the gzipped TSV file and yield stock records.
 
         Args:
@@ -224,11 +220,10 @@ class FlyBaseDataLoader:
 
         with gzip.open(path, "rt", encoding="utf-8") as f:
             reader = csv.DictReader(f, delimiter="\t")
-            for row in reader:
-                yield row
+            yield from reader
 
     def filter_stocks_by_collection(
-        self, stocks: Iterator[dict], collection: Optional[str] = None
+        self, stocks: Iterator[dict], collection: str | None = None
     ) -> Iterator[dict]:
         """Filter stock records by collection name.
 
@@ -351,9 +346,7 @@ class FlyBaseDataLoader:
         _, by_repository = await self.load_all_stocks(force_refresh)
         return by_repository.get("bdsc", {})
 
-    def get_repository_stats(
-        self, by_repository: dict[str, dict[str, dict]]
-    ) -> list[dict]:
+    def get_repository_stats(self, by_repository: dict[str, dict[str, dict]]) -> list[dict]:
         """Get statistics for each repository.
 
         Args:
@@ -365,11 +358,13 @@ class FlyBaseDataLoader:
         stats = []
         for repo_id in COLLECTION_TO_REPOSITORY.values():
             repo_stocks = by_repository.get(repo_id, {})
-            stats.append({
-                "id": repo_id,
-                "name": REPOSITORY_NAMES.get(repo_id, repo_id.upper()),
-                "count": len(repo_stocks),
-            })
+            stats.append(
+                {
+                    "id": repo_id,
+                    "name": REPOSITORY_NAMES.get(repo_id, repo_id.upper()),
+                    "count": len(repo_stocks),
+                }
+            )
         # Sort by count descending
         stats.sort(key=lambda x: x["count"], reverse=True)
         return stats

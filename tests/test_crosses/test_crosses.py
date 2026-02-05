@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.db.models import Stock, Cross, CrossStatus, User, Tenant
+from app.db.models import Cross, CrossStatus, Stock, Tenant, User
 
 
 @pytest.fixture
@@ -72,9 +72,7 @@ class TestListCrosses:
         assert data["items"] == []
         assert data["total"] == 0
 
-    def test_list_crosses_with_data(
-        self, authenticated_client: TestClient, test_cross: Cross
-    ):
+    def test_list_crosses_with_data(self, authenticated_client: TestClient, test_cross: Cross):
         """Test listing crosses returns existing crosses."""
         response = authenticated_client.get("/api/crosses")
 
@@ -106,9 +104,7 @@ class TestCreateCross:
         assert data["name"] == "New Cross"
         assert data["status"] == "planned"
 
-    def test_create_cross_same_parent(
-        self, authenticated_client: TestClient, female_stock: Stock
-    ):
+    def test_create_cross_same_parent(self, authenticated_client: TestClient, female_stock: Stock):
         """Test creating cross with same stock for both parents fails."""
         response = authenticated_client.post(
             "/api/crosses",
@@ -145,9 +141,7 @@ class TestCrossStatusTransitions:
         data = response.json()
         assert data["status"] == "in_progress"
 
-    def test_complete_cross(
-        self, authenticated_client: TestClient, test_cross: Cross, db: Session
-    ):
+    def test_complete_cross(self, authenticated_client: TestClient, test_cross: Cross, db: Session):
         """Test completing a cross."""
         # First start the cross
         test_cross.status = CrossStatus.IN_PROGRESS
@@ -162,9 +156,7 @@ class TestCrossStatusTransitions:
         data = response.json()
         assert data["status"] == "completed"
 
-    def test_fail_cross(
-        self, authenticated_client: TestClient, test_cross: Cross, db: Session
-    ):
+    def test_fail_cross(self, authenticated_client: TestClient, test_cross: Cross, db: Session):
         """Test marking a cross as failed."""
         test_cross.status = CrossStatus.IN_PROGRESS
         db.commit()

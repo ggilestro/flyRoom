@@ -1,7 +1,6 @@
 """Pydantic schemas for tenant administration."""
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -19,10 +18,10 @@ class UserInvite(BaseModel):
 class UserUpdateAdmin(BaseModel):
     """Schema for admin updating a user."""
 
-    full_name: Optional[str] = Field(None, min_length=2, max_length=255)
-    email: Optional[EmailStr] = None
-    role: Optional[UserRole] = None
-    is_active: Optional[bool] = None
+    full_name: str | None = Field(None, min_length=2, max_length=255)
+    email: EmailStr | None = None
+    role: UserRole | None = None
+    is_active: bool | None = None
 
 
 class UserListResponse(BaseModel):
@@ -34,7 +33,7 @@ class UserListResponse(BaseModel):
     role: str
     is_active: bool
     created_at: datetime
-    last_login: Optional[datetime] = None
+    last_login: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -58,12 +57,12 @@ class TenantResponse(BaseModel):
     user_count: int
     stock_count: int
     # New organization fields
-    organization: Optional[OrganizationInfo] = None
+    organization: OrganizationInfo | None = None
     is_org_admin: bool = False
-    city: Optional[str] = None
-    country: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    city: str | None = None
+    country: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -71,4 +70,4 @@ class TenantResponse(BaseModel):
 class TenantUpdate(BaseModel):
     """Schema for updating tenant."""
 
-    name: Optional[str] = Field(None, min_length=2, max_length=255)
+    name: str | None = Field(None, min_length=2, max_length=255)

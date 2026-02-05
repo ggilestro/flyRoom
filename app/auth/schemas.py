@@ -1,7 +1,5 @@
 """Pydantic schemas for authentication."""
 
-from typing import Optional
-
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
@@ -48,7 +46,7 @@ class UserRegisterMember(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=100)
     password_confirm: str
-    invitation_token: Optional[str] = None
+    invitation_token: str | None = None
 
     @field_validator("password_confirm")
     @classmethod
@@ -76,17 +74,17 @@ class UserRegister(BaseModel):
         country: Lab country (PI only, optional).
     """
 
-    organization: Optional[str] = Field(None, min_length=2, max_length=255)
+    organization: str | None = Field(None, min_length=2, max_length=255)
     full_name: str = Field(..., min_length=2, max_length=255)
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=100)
     password_confirm: str
     is_pi: bool = False
-    pi_identifier: Optional[str] = Field(None, min_length=2, max_length=255)
-    invitation_token: Optional[str] = None
-    lab_name: Optional[str] = Field(None, max_length=255)
-    city: Optional[str] = Field(None, max_length=100)
-    country: Optional[str] = Field(None, max_length=100)
+    pi_identifier: str | None = Field(None, min_length=2, max_length=255)
+    invitation_token: str | None = None
+    lab_name: str | None = Field(None, max_length=255)
+    city: str | None = Field(None, max_length=100)
+    country: str | None = Field(None, max_length=100)
 
     @field_validator("password_confirm")
     @classmethod
@@ -98,7 +96,7 @@ class UserRegister(BaseModel):
 
     @field_validator("organization")
     @classmethod
-    def organization_required_for_pi(cls, v: Optional[str], info) -> Optional[str]:
+    def organization_required_for_pi(cls, v: str | None, info) -> str | None:
         """Validate organization is provided for PI registration."""
         if info.data.get("is_pi") and not v:
             raise ValueError("Organization is required for PI registration")
@@ -106,7 +104,7 @@ class UserRegister(BaseModel):
 
     @field_validator("pi_identifier")
     @classmethod
-    def pi_identifier_required_for_member(cls, v: Optional[str], info) -> Optional[str]:
+    def pi_identifier_required_for_member(cls, v: str | None, info) -> str | None:
         """Validate PI identifier is provided for member registration (unless using invite)."""
         is_pi = info.data.get("is_pi", False)
         has_invite = info.data.get("invitation_token")

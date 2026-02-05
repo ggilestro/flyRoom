@@ -6,21 +6,20 @@ from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import (
+    JSON,
     Boolean,
-    Column,
     DateTime,
     Enum,
     Float,
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import CHAR
-from sqlalchemy.orm import DeclarativeBase, relationship, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 
@@ -135,23 +134,17 @@ class Organization(Base):
 
     __tablename__ = "organizations"
 
-    id: Mapped[str] = mapped_column(
-        CHAR(36), primary_key=True, default=generate_uuid
-    )
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     normalized_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    website: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    website: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships
-    tenants: Mapped[list["Tenant"]] = relationship(
-        "Tenant", back_populates="organization"
-    )
+    tenants: Mapped[list["Tenant"]] = relationship("Tenant", back_populates="organization")
     join_requests: Mapped[list["OrganizationJoinRequest"]] = relationship(
         "OrganizationJoinRequest",
         back_populates="organization",
@@ -181,29 +174,21 @@ class Tenant(Base):
     __tablename__ = "tenants"
     __table_args__ = (Index("ix_tenants_organization_id", "organization_id"),)
 
-    id: Mapped[str] = mapped_column(
-        CHAR(36), primary_key=True, default=generate_uuid
-    )
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    organization_id: Mapped[Optional[str]] = mapped_column(
+    organization_id: Mapped[str | None] = mapped_column(
         CHAR(36), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True
     )
     is_org_admin: Mapped[bool] = mapped_column(Boolean, default=False)
-    city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    country: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
-    invitation_token: Mapped[Optional[str]] = mapped_column(
-        String(64), unique=True, nullable=True
-    )
-    invitation_token_created_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime, nullable=True
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    invitation_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    invitation_token_created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relationships
     organization: Mapped[Optional["Organization"]] = relationship(
@@ -252,9 +237,7 @@ class User(Base):
         Index("ix_users_tenant_id", "tenant_id"),
     )
 
-    id: Mapped[str] = mapped_column(
-        CHAR(36), primary_key=True, default=generate_uuid
-    )
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
     tenant_id: Mapped[str] = mapped_column(
         CHAR(36), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
@@ -262,32 +245,22 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, values_callable=lambda x: [e.value for e in x]),
-        default=UserRole.USER
+        Enum(UserRole, values_callable=lambda x: [e.value for e in x]), default=UserRole.USER
     )
     status: Mapped[UserStatus] = mapped_column(
-        Enum(UserStatus, values_callable=lambda x: [e.value for e in x]),
-        default=UserStatus.PENDING
+        Enum(UserStatus, values_callable=lambda x: [e.value for e in x]), default=UserStatus.PENDING
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
-    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    password_reset_token: Mapped[Optional[str]] = mapped_column(
-        String(64), unique=True, nullable=True
-    )
-    password_reset_token_expires: Mapped[Optional[datetime]] = mapped_column(
-        DateTime, nullable=True
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    last_login: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    password_reset_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    password_reset_token_expires: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # Email verification
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
-    email_verification_token: Mapped[Optional[str]] = mapped_column(
+    email_verification_token: Mapped[str | None] = mapped_column(
         String(64), unique=True, nullable=True
     )
-    email_verification_sent_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime, nullable=True
-    )
+    email_verification_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relationships
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="users")
@@ -301,9 +274,7 @@ class User(Base):
         back_populates="modified_by",
         foreign_keys="Stock.modified_by_id",
     )
-    created_crosses: Mapped[list["Cross"]] = relationship(
-        "Cross", back_populates="created_by"
-    )
+    created_crosses: Mapped[list["Cross"]] = relationship("Cross", back_populates="created_by")
     owned_stocks: Mapped[list["Stock"]] = relationship(
         "Stock",
         back_populates="owner",
@@ -332,9 +303,7 @@ class OrganizationJoinRequest(Base):
         Index("ix_org_join_requests_tenant_id", "tenant_id"),
     )
 
-    id: Mapped[str] = mapped_column(
-        CHAR(36), primary_key=True, default=generate_uuid
-    )
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
     organization_id: Mapped[str] = mapped_column(
         CHAR(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
@@ -346,14 +315,12 @@ class OrganizationJoinRequest(Base):
     )
     status: Mapped[OrgJoinRequestStatus] = mapped_column(
         Enum(OrgJoinRequestStatus, values_callable=lambda x: [e.value for e in x]),
-        default=OrgJoinRequestStatus.PENDING
+        default=OrgJoinRequestStatus.PENDING,
     )
-    message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
-    responded_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    responded_by_id: Mapped[Optional[str]] = mapped_column(
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    responded_by_id: Mapped[str | None] = mapped_column(
         CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
@@ -368,12 +335,8 @@ class OrganizationJoinRequest(Base):
         back_populates="join_requests",
         foreign_keys=[tenant_id],
     )
-    requested_by: Mapped[Optional["User"]] = relationship(
-        "User", foreign_keys=[requested_by_id]
-    )
-    responded_by: Mapped[Optional["User"]] = relationship(
-        "User", foreign_keys=[responded_by_id]
-    )
+    requested_by: Mapped[Optional["User"]] = relationship("User", foreign_keys=[requested_by_id])
+    responded_by: Mapped[Optional["User"]] = relationship("User", foreign_keys=[responded_by_id])
 
 
 class Tray(Base):
@@ -397,24 +360,19 @@ class Tray(Base):
         Index("ix_trays_tenant_id", "tenant_id"),
     )
 
-    id: Mapped[str] = mapped_column(
-        CHAR(36), primary_key=True, default=generate_uuid
-    )
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
     tenant_id: Mapped[str] = mapped_column(
         CHAR(36), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     tray_type: Mapped[TrayType] = mapped_column(
-        Enum(TrayType, values_callable=lambda x: [e.value for e in x]),
-        default=TrayType.NUMERIC
+        Enum(TrayType, values_callable=lambda x: [e.value for e in x]), default=TrayType.NUMERIC
     )
     max_positions: Mapped[int] = mapped_column(Integer, default=100)
-    rows: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    cols: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
+    rows: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cols: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="trays")
@@ -467,9 +425,7 @@ class Stock(Base):
         Index("ix_stocks_repository", "repository"),
     )
 
-    id: Mapped[str] = mapped_column(
-        CHAR(36), primary_key=True, default=generate_uuid
-    )
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
     tenant_id: Mapped[str] = mapped_column(
         CHAR(36), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
@@ -479,54 +435,51 @@ class Stock(Base):
     # Origin/Source tracking
     origin: Mapped[StockOrigin] = mapped_column(
         Enum(StockOrigin, values_callable=lambda x: [e.value for e in x]),
-        default=StockOrigin.INTERNAL
+        default=StockOrigin.INTERNAL,
     )
-    repository: Mapped[Optional[StockRepository]] = mapped_column(
-        Enum(StockRepository, values_callable=lambda x: [e.value for e in x]),
-        nullable=True
+    repository: Mapped[StockRepository | None] = mapped_column(
+        Enum(StockRepository, values_callable=lambda x: [e.value for e in x]), nullable=True
     )  # Only set if origin=repository
-    repository_stock_id: Mapped[Optional[str]] = mapped_column(
+    repository_stock_id: Mapped[str | None] = mapped_column(
         String(50), nullable=True
     )  # e.g., "3605" for BDSC#3605
-    external_source: Mapped[Optional[str]] = mapped_column(
+    external_source: Mapped[str | None] = mapped_column(
         String(255), nullable=True
     )  # Lab/researcher name if origin=external
-    original_genotype: Mapped[Optional[str]] = mapped_column(
+    original_genotype: Mapped[str | None] = mapped_column(
         Text, nullable=True
     )  # Original genotype from repository (before any local modifications)
 
     # Physical location
-    tray_id: Mapped[Optional[str]] = mapped_column(
+    tray_id: Mapped[str | None] = mapped_column(
         CHAR(36), ForeignKey("trays.id", ondelete="SET NULL"), nullable=True
     )
-    position: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    position: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     # Ownership and visibility
-    owner_id: Mapped[Optional[str]] = mapped_column(
+    owner_id: Mapped[str | None] = mapped_column(
         CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     visibility: Mapped[StockVisibility] = mapped_column(
         Enum(StockVisibility, values_callable=lambda x: [e.value for e in x]),
-        default=StockVisibility.LAB_ONLY
+        default=StockVisibility.LAB_ONLY,
     )
     hide_from_org: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Metadata
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     created_by_id: Mapped[str] = mapped_column(
         CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     modified_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
-    modified_by_id: Mapped[Optional[str]] = mapped_column(
+    modified_by_id: Mapped[str | None] = mapped_column(
         CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    external_metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    external_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # Relationships
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="stocks")
@@ -546,9 +499,7 @@ class Stock(Base):
         back_populates="modified_stocks",
         foreign_keys=[modified_by_id],
     )
-    tags: Mapped[list["Tag"]] = relationship(
-        "Tag", secondary="stock_tags", back_populates="stocks"
-    )
+    tags: Mapped[list["Tag"]] = relationship("Tag", secondary="stock_tags", back_populates="stocks")
     external_references: Mapped[list["ExternalReference"]] = relationship(
         "ExternalReference", back_populates="stock", cascade="all, delete-orphan"
     )
@@ -589,14 +540,12 @@ class Tag(Base):
         Index("ix_tags_tenant_id", "tenant_id"),
     )
 
-    id: Mapped[str] = mapped_column(
-        CHAR(36), primary_key=True, default=generate_uuid
-    )
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
     tenant_id: Mapped[str] = mapped_column(
         CHAR(36), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
+    color: Mapped[str | None] = mapped_column(String(7), nullable=True)
 
     # Relationships
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="tags")
@@ -644,34 +593,30 @@ class Cross(Base):
     __tablename__ = "crosses"
     __table_args__ = (Index("ix_crosses_tenant_id", "tenant_id"),)
 
-    id: Mapped[str] = mapped_column(
-        CHAR(36), primary_key=True, default=generate_uuid
-    )
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
     tenant_id: Mapped[str] = mapped_column(
         CHAR(36), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
-    name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     parent_female_id: Mapped[str] = mapped_column(
         CHAR(36), ForeignKey("stocks.id", ondelete="RESTRICT"), nullable=False
     )
     parent_male_id: Mapped[str] = mapped_column(
         CHAR(36), ForeignKey("stocks.id", ondelete="RESTRICT"), nullable=False
     )
-    offspring_id: Mapped[Optional[str]] = mapped_column(
+    offspring_id: Mapped[str | None] = mapped_column(
         CHAR(36), ForeignKey("stocks.id", ondelete="SET NULL"), nullable=True
     )
-    planned_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    executed_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    planned_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    executed_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     status: Mapped[CrossStatus] = mapped_column(
         Enum(CrossStatus, values_callable=lambda x: [e.value for e in x]),
-        default=CrossStatus.PLANNED
+        default=CrossStatus.PLANNED,
     )
-    expected_outcomes: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
-    created_by_id: Mapped[Optional[str]] = mapped_column(
+    expected_outcomes: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_by_id: Mapped[str | None] = mapped_column(
         CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
@@ -692,9 +637,7 @@ class Cross(Base):
         back_populates="crosses_as_offspring",
         foreign_keys=[offspring_id],
     )
-    created_by: Mapped[Optional["User"]] = relationship(
-        "User", back_populates="created_crosses"
-    )
+    created_by: Mapped[Optional["User"]] = relationship("User", back_populates="created_crosses")
 
 
 class ExternalReference(Base):
@@ -710,27 +653,19 @@ class ExternalReference(Base):
     """
 
     __tablename__ = "external_references"
-    __table_args__ = (
-        UniqueConstraint("stock_id", "source", name="uq_extref_stock_source"),
-    )
+    __table_args__ = (UniqueConstraint("stock_id", "source", name="uq_extref_stock_source"),)
 
-    id: Mapped[str] = mapped_column(
-        CHAR(36), primary_key=True, default=generate_uuid
-    )
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
     stock_id: Mapped[str] = mapped_column(
         CHAR(36), ForeignKey("stocks.id", ondelete="CASCADE"), nullable=False
     )
     source: Mapped[str] = mapped_column(String(50), nullable=False)
     external_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    fetched_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
+    data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships
-    stock: Mapped["Stock"] = relationship(
-        "Stock", back_populates="external_references"
-    )
+    stock: Mapped["Stock"] = relationship("Stock", back_populates="external_references")
 
 
 class StockRequest(Base):
@@ -759,9 +694,7 @@ class StockRequest(Base):
         Index("ix_stock_requests_status", "status"),
     )
 
-    id: Mapped[str] = mapped_column(
-        CHAR(36), primary_key=True, default=generate_uuid
-    )
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
     stock_id: Mapped[str] = mapped_column(
         CHAR(36), ForeignKey("stocks.id", ondelete="CASCADE"), nullable=False
     )
@@ -776,34 +709,24 @@ class StockRequest(Base):
     )
     status: Mapped[StockRequestStatus] = mapped_column(
         Enum(StockRequestStatus, values_callable=lambda x: [e.value for e in x]),
-        default=StockRequestStatus.PENDING
+        default=StockRequestStatus.PENDING,
     )
-    message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    response_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    response_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
-    responded_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    responded_by_id: Mapped[Optional[str]] = mapped_column(
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    responded_by_id: Mapped[str | None] = mapped_column(
         CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
     # Relationships
-    stock: Mapped["Stock"] = relationship(
-        "Stock", back_populates="stock_requests"
-    )
+    stock: Mapped["Stock"] = relationship("Stock", back_populates="stock_requests")
     requester_user: Mapped[Optional["User"]] = relationship(
         "User", foreign_keys=[requester_user_id]
     )
-    requester_tenant: Mapped["Tenant"] = relationship(
-        "Tenant", foreign_keys=[requester_tenant_id]
-    )
-    owner_tenant: Mapped["Tenant"] = relationship(
-        "Tenant", foreign_keys=[owner_tenant_id]
-    )
-    responded_by: Mapped[Optional["User"]] = relationship(
-        "User", foreign_keys=[responded_by_id]
-    )
+    requester_tenant: Mapped["Tenant"] = relationship("Tenant", foreign_keys=[requester_tenant_id])
+    owner_tenant: Mapped["Tenant"] = relationship("Tenant", foreign_keys=[owner_tenant_id])
+    responded_by: Mapped[Optional["User"]] = relationship("User", foreign_keys=[responded_by_id])

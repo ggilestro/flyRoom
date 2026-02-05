@@ -1,19 +1,17 @@
 """Tray service layer."""
 
-from typing import Optional
-
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.db.models import Tray, Stock, TrayType
+from app.db.models import Stock, Tray, TrayType
 from app.trays.schemas import (
     TrayCreate,
-    TrayUpdate,
-    TrayResponse,
+    TrayDetailResponse,
     TrayListResponse,
     TrayPositionInfo,
-    TrayDetailResponse,
+    TrayResponse,
     TrayStockInfo,
+    TrayUpdate,
 )
 
 
@@ -41,7 +39,7 @@ class TrayService:
         """
         stock_count = (
             self.db.query(func.count(Stock.id))
-            .filter(Stock.tray_id == tray.id, Stock.is_active == True)
+            .filter(Stock.tray_id == tray.id, Stock.is_active)
             .scalar()
         )
         return TrayResponse(
@@ -56,9 +54,7 @@ class TrayService:
             stock_count=stock_count,
         )
 
-    def list_trays(
-        self, page: int = 1, page_size: int = 20
-    ) -> TrayListResponse:
+    def list_trays(self, page: int = 1, page_size: int = 20) -> TrayListResponse:
         """List all trays for the tenant.
 
         Args:
@@ -68,19 +64,11 @@ class TrayService:
         Returns:
             TrayListResponse: Paginated tray list.
         """
-        query = (
-            self.db.query(Tray)
-            .filter(Tray.tenant_id == self.tenant_id)
-        )
+        query = self.db.query(Tray).filter(Tray.tenant_id == self.tenant_id)
 
         total = query.count()
         offset = (page - 1) * page_size
-        trays = (
-            query.order_by(Tray.name)
-            .offset(offset)
-            .limit(page_size)
-            .all()
-        )
+        trays = query.order_by(Tray.name).offset(offset).limit(page_size).all()
 
         pages = (total + page_size - 1) // page_size
 
@@ -92,7 +80,7 @@ class TrayService:
             pages=pages,
         )
 
-    def get_tray(self, tray_id: str) -> Optional[Tray]:
+    def get_tray(self, tray_id: str) -> Tray | None:
         """Get a tray by ID.
 
         Args:
@@ -102,12 +90,10 @@ class TrayService:
             Tray | None: Tray if found.
         """
         return (
-            self.db.query(Tray)
-            .filter(Tray.id == tray_id, Tray.tenant_id == self.tenant_id)
-            .first()
+            self.db.query(Tray).filter(Tray.id == tray_id, Tray.tenant_id == self.tenant_id).first()
         )
 
-    def get_tray_detail(self, tray_id: str) -> Optional[TrayDetailResponse]:
+    def get_tray_detail(self, tray_id: str) -> TrayDetailResponse | None:
         """Get tray with position details.
 
         Args:
@@ -121,11 +107,7 @@ class TrayService:
             return None
 
         # Get stocks in this tray
-        stocks = (
-            self.db.query(Stock)
-            .filter(Stock.tray_id == tray_id, Stock.is_active == True)
-            .all()
-        )
+        stocks = self.db.query(Stock).filter(Stock.tray_id == tray_id, Stock.is_active).all()
 
         # Build position map
         position_map = {s.position: s for s in stocks if s.position}
@@ -135,25 +117,29 @@ class TrayService:
         if tray.tray_type == TrayType.GRID and tray.rows and tray.cols:
             # Generate grid positions (A1, A2, ... B1, B2, ...)
             for row in range(tray.rows):
-                row_letter = chr(ord('A') + row)
+                row_letter = chr(ord("A") + row)
                 for col in range(1, tray.cols + 1):
                     pos = f"{row_letter}{col}"
                     stock = position_map.get(pos)
-                    positions.append(TrayPositionInfo(
-                        position=pos,
-                        stock_id=stock.id if stock else None,
-                        stock_name=stock.stock_id if stock else None,
-                    ))
+                    positions.append(
+                        TrayPositionInfo(
+                            position=pos,
+                            stock_id=stock.id if stock else None,
+                            stock_name=stock.stock_id if stock else None,
+                        )
+                    )
         else:
             # Numeric positions
             for i in range(1, tray.max_positions + 1):
                 pos = str(i)
                 stock = position_map.get(pos)
-                positions.append(TrayPositionInfo(
-                    position=pos,
-                    stock_id=stock.id if stock else None,
-                    stock_name=stock.stock_id if stock else None,
-                ))
+                positions.append(
+                    TrayPositionInfo(
+                        position=pos,
+                        stock_id=stock.id if stock else None,
+                        stock_name=stock.stock_id if stock else None,
+                    )
+                )
 
         stock_count = len(stocks)
 
@@ -223,7 +209,7 @@ class TrayService:
         self.db.refresh(tray)
         return tray
 
-    def update_tray(self, tray_id: str, data: TrayUpdate) -> Optional[Tray]:
+    def update_tray(self, tray_id: str, data: TrayUpdate) -> Tray | None:
         """Update a tray.
 
         Args:
@@ -317,7 +303,7 @@ class TrayService:
                 col_num = int(position[1:])
             except ValueError:
                 return False
-            row_num = ord(row_letter) - ord('A')
+            row_num = ord(row_letter) - ord("A")
             return 0 <= row_num < tray.rows and 1 <= col_num <= tray.cols
         else:
             # Numeric position

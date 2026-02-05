@@ -3,19 +3,23 @@
 import logging
 import re
 import secrets
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from app.auth.schemas import UserRegister, UserLogin, Token, UserResponse, ForgotPassword, PasswordReset
+from app.auth.schemas import (
+    Token,
+    UserLogin,
+    UserRegister,
+    UserResponse,
+)
 from app.auth.utils import (
-    get_password_hash,
-    verify_password,
     create_access_token,
     create_refresh_token,
+    get_password_hash,
+    verify_password,
 )
-from app.db.models import User, Tenant, UserRole, UserStatus
+from app.db.models import Tenant, User, UserRole, UserStatus
 from app.email.service import get_email_service
 
 logger = logging.getLogger(__name__)
@@ -82,7 +86,7 @@ class AuthService:
         """
         # Generate new token
         user.email_verification_token = self._generate_verification_token()
-        user.email_verification_sent_at = datetime.now(timezone.utc)
+        user.email_verification_sent_at = datetime.now(UTC)
         self.db.commit()
 
         verification_url = f"{base_url}/verify-email?token={user.email_verification_token}"
@@ -96,7 +100,7 @@ class AuthService:
             logger.warning(f"Failed to send verification email to {user.email}: {e}")
             return False
 
-    def verify_email(self, token: str) -> tuple[Optional[User], str]:
+    def verify_email(self, token: str) -> tuple[User | None, str]:
         """Verify user's email address.
 
         Args:
@@ -105,11 +109,7 @@ class AuthService:
         Returns:
             tuple: (User or None, status message).
         """
-        user = (
-            self.db.query(User)
-            .filter(User.email_verification_token == token)
-            .first()
-        )
+        user = self.db.query(User).filter(User.email_verification_token == token).first()
 
         if not user:
             return None, "Invalid verification link."
@@ -117,12 +117,13 @@ class AuthService:
         # Check if token is expired (24 hours)
         if user.email_verification_sent_at:
             from datetime import timedelta
+
             sent_at = user.email_verification_sent_at
             # Handle timezone-naive datetime from database
             if sent_at.tzinfo is None:
-                sent_at = sent_at.replace(tzinfo=timezone.utc)
+                sent_at = sent_at.replace(tzinfo=UTC)
             expiry = sent_at + timedelta(hours=24)
-            if datetime.now(timezone.utc) > expiry:
+            if datetime.now(UTC) > expiry:
                 return None, "Verification link has expired. Please request a new one."
 
         # Mark as verified
@@ -133,7 +134,7 @@ class AuthService:
 
         return user, "Email verified successfully! You can now log in."
 
-    def _find_tenant_by_name(self, name: str) -> Optional[Tenant]:
+    def _find_tenant_by_name(self, name: str) -> Tenant | None:
         """Find a tenant by name (case-insensitive).
 
         Args:
@@ -142,13 +143,9 @@ class AuthService:
         Returns:
             Tenant if found, None otherwise.
         """
-        return (
-            self.db.query(Tenant)
-            .filter(Tenant.name.ilike(name))
-            .first()
-        )
+        return self.db.query(Tenant).filter(Tenant.name.ilike(name)).first()
 
-    def _find_tenant_by_pi(self, pi_identifier: str) -> Optional[tuple[Tenant, User]]:
+    def _find_tenant_by_pi(self, pi_identifier: str) -> tuple[Tenant, User] | None:
         """Find a tenant by PI's name or email.
 
         Args:
@@ -163,7 +160,7 @@ class AuthService:
             .filter(
                 User.email.ilike(pi_identifier),
                 User.role == UserRole.ADMIN,
-                User.is_active == True,
+                User.is_active,
             )
             .first()
         )
@@ -175,7 +172,7 @@ class AuthService:
                 .filter(
                     User.full_name.ilike(pi_identifier),
                     User.role == UserRole.ADMIN,
-                    User.is_active == True,
+                    User.is_active,
                 )
                 .first()
             )
@@ -187,7 +184,7 @@ class AuthService:
 
         return None
 
-    def _find_tenant_by_invitation_token(self, token: str) -> Optional[Tenant]:
+    def _find_tenant_by_invitation_token(self, token: str) -> Tenant | None:
         """Find a tenant by invitation token.
 
         Args:
@@ -197,12 +194,10 @@ class AuthService:
             Tenant if found, None otherwise.
         """
         return (
-            self.db.query(Tenant)
-            .filter(Tenant.invitation_token == token, Tenant.is_active == True)
-            .first()
+            self.db.query(Tenant).filter(Tenant.invitation_token == token, Tenant.is_active).first()
         )
 
-    def register(self, data: UserRegister, base_url: str = "") -> tuple[User, Optional[Token], str]:
+    def register(self, data: UserRegister, base_url: str = "") -> tuple[User, Token | None, str]:
         """Register a new user.
 
         Handles three cases:
@@ -228,7 +223,9 @@ class AuthService:
         else:
             return self._register_member(data, base_url)
 
-    def _register_pi(self, data: UserRegister, base_url: str = "") -> tuple[User, Optional[Token], str]:
+    def _register_pi(
+        self, data: UserRegister, base_url: str = ""
+    ) -> tuple[User, Token | None, str]:
         """Register a PI/team leader and create new lab.
 
         Each PI creates their own lab within an organization. Multiple PIs
@@ -247,11 +244,7 @@ class AuthService:
         from app.db.models import Organization
 
         # Check if this email is already registered as a PI
-        existing_pi = (
-            self.db.query(User)
-            .filter(User.email == data.email)
-            .first()
-        )
+        existing_pi = self.db.query(User).filter(User.email == data.email).first()
         if existing_pi:
             raise ValueError("This email is already registered.")
 
@@ -266,23 +259,20 @@ class AuthService:
             slug=slug,
             is_active=True,
             invitation_token=self._generate_invitation_token(),
-            invitation_token_created_at=datetime.now(timezone.utc),
+            invitation_token_created_at=datetime.now(UTC),
             city=data.city,
             country=data.country,
         )
 
         # Try to find or create the organization
-        org = (
-            self.db.query(Organization)
-            .filter(Organization.name == data.organization)
-            .first()
-        )
+        org = self.db.query(Organization).filter(Organization.name == data.organization).first()
         if org:
             # Link to existing organization
             tenant.organization_id = org.id
         else:
             # Create new organization and make this lab the admin
-            from app.organizations.service import slugify, normalize_name
+            from app.organizations.service import normalize_name, slugify
+
             new_org = Organization(
                 name=data.organization,
                 slug=slugify(data.organization),
@@ -316,9 +306,15 @@ class AuthService:
         if base_url:
             self.send_verification_email(user, base_url)
 
-        return user, None, f"Registration successful! Please check your email to verify your account."
+        return (
+            user,
+            None,
+            "Registration successful! Please check your email to verify your account.",
+        )
 
-    def _register_member(self, data: UserRegister, base_url: str = "") -> tuple[User, Optional[Token], str]:
+    def _register_member(
+        self, data: UserRegister, base_url: str = ""
+    ) -> tuple[User, Token | None, str]:
         """Register a lab member to join existing organization.
 
         Args:
@@ -391,7 +387,11 @@ class AuthService:
             self.send_verification_email(user, base_url)
 
         if auto_approve:
-            return user, None, f"Registration successful! Please check your email to verify your account."
+            return (
+                user,
+                None,
+                "Registration successful! Please check your email to verify your account.",
+            )
         else:
             # Notify admin about new member request
             try:
@@ -407,12 +407,16 @@ class AuthService:
                 logger.warning(f"Failed to send registration emails: {e}")
 
             # No token for pending users - need both email verification and approval
-            return user, None, (
-                f"Registration submitted! Please check your email to verify your account. "
-                f"Your request to join {lab_name}'s lab is also pending approval."
+            return (
+                user,
+                None,
+                (
+                    f"Registration submitted! Please check your email to verify your account. "
+                    f"Your request to join {lab_name}'s lab is also pending approval."
+                ),
             )
 
-    def login(self, data: UserLogin) -> tuple[Optional[User], Optional[Token], str]:
+    def login(self, data: UserLogin) -> tuple[User | None, Token | None, str]:
         """Authenticate user and return token.
 
         Args:
@@ -437,10 +441,14 @@ class AuthService:
             return None, None, "Your account request was rejected. Contact your administrator."
 
         if not user.is_email_verified:
-            return None, None, "Please verify your email address before logging in. Check your inbox for the verification link."
+            return (
+                None,
+                None,
+                "Please verify your email address before logging in. Check your inbox for the verification link.",
+            )
 
         # Update last login
-        user.last_login = datetime.now(timezone.utc)
+        user.last_login = datetime.now(UTC)
         self.db.commit()
 
         # Generate tokens
@@ -464,7 +472,7 @@ class AuthService:
         if not tenant.invitation_token:
             # Generate new token if none exists
             tenant.invitation_token = self._generate_invitation_token()
-            tenant.invitation_token_created_at = datetime.now(timezone.utc)
+            tenant.invitation_token_created_at = datetime.now(UTC)
             self.db.commit()
 
         return f"{base_url}/register?invite={tenant.invitation_token}"
@@ -479,7 +487,7 @@ class AuthService:
             str: New invitation token.
         """
         tenant.invitation_token = self._generate_invitation_token()
-        tenant.invitation_token_created_at = datetime.now(timezone.utc)
+        tenant.invitation_token_created_at = datetime.now(UTC)
         self.db.commit()
         return tenant.invitation_token
 
@@ -499,7 +507,7 @@ class AuthService:
             .all()
         )
 
-    def approve_user(self, user_id: str, tenant_id: str) -> Optional[User]:
+    def approve_user(self, user_id: str, tenant_id: str) -> User | None:
         """Approve a pending user.
 
         Args:
@@ -532,7 +540,7 @@ class AuthService:
 
         return user
 
-    def reject_user(self, user_id: str, tenant_id: str) -> Optional[User]:
+    def reject_user(self, user_id: str, tenant_id: str) -> User | None:
         """Reject a pending user.
 
         Args:
@@ -605,9 +613,7 @@ class AuthService:
             tenant=tenant_info,
         )
 
-    def change_password(
-        self, user: User, current_password: str, new_password: str
-    ) -> bool:
+    def change_password(self, user: User, current_password: str, new_password: str) -> bool:
         """Change user's password.
 
         Args:
@@ -626,7 +632,7 @@ class AuthService:
         return True
 
     def update_profile(
-        self, user: User, full_name: Optional[str] = None, email: Optional[str] = None
+        self, user: User, full_name: str | None = None, email: str | None = None
     ) -> User:
         """Update user profile.
 
@@ -679,7 +685,7 @@ class AuthService:
             # Generate reset token
             token = secrets.token_hex(32)
             user.password_reset_token = token
-            user.password_reset_token_expires = datetime.now(timezone.utc) + timedelta(hours=1)
+            user.password_reset_token_expires = datetime.now(UTC) + timedelta(hours=1)
             self.db.commit()
 
             # Send reset email
@@ -707,11 +713,7 @@ class AuthService:
         Returns:
             tuple: (success: bool, message: str)
         """
-        user = (
-            self.db.query(User)
-            .filter(User.password_reset_token == token)
-            .first()
-        )
+        user = self.db.query(User).filter(User.password_reset_token == token).first()
 
         if not user:
             return False, "Invalid or expired reset link."
@@ -722,9 +724,9 @@ class AuthService:
         # Handle both timezone-aware and naive datetimes from database
         token_expires = user.password_reset_token_expires
         if token_expires.tzinfo is None:
-            token_expires = token_expires.replace(tzinfo=timezone.utc)
+            token_expires = token_expires.replace(tzinfo=UTC)
 
-        if datetime.now(timezone.utc) > token_expires:
+        if datetime.now(UTC) > token_expires:
             # Clear expired token
             user.password_reset_token = None
             user.password_reset_token_expires = None
@@ -739,7 +741,7 @@ class AuthService:
 
         return True, "Password has been reset successfully. You can now log in."
 
-    def validate_reset_token(self, token: str) -> tuple[bool, Optional[User]]:
+    def validate_reset_token(self, token: str) -> tuple[bool, User | None]:
         """Validate a password reset token.
 
         Args:
@@ -748,11 +750,7 @@ class AuthService:
         Returns:
             tuple: (is_valid: bool, user: User or None)
         """
-        user = (
-            self.db.query(User)
-            .filter(User.password_reset_token == token)
-            .first()
-        )
+        user = self.db.query(User).filter(User.password_reset_token == token).first()
 
         if not user or not user.password_reset_token_expires:
             return False, None
@@ -760,9 +758,9 @@ class AuthService:
         # Handle both timezone-aware and naive datetimes from database
         token_expires = user.password_reset_token_expires
         if token_expires.tzinfo is None:
-            token_expires = token_expires.replace(tzinfo=timezone.utc)
+            token_expires = token_expires.replace(tzinfo=UTC)
 
-        if datetime.now(timezone.utc) > token_expires:
+        if datetime.now(UTC) > token_expires:
             return False, None
 
         return True, user

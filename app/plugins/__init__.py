@@ -1,12 +1,12 @@
 """Plugins module for external integrations."""
 
-from app.plugins.base import StockPlugin, StockImportData
+from app.plugins.base import StockImportData, StockPlugin
 from app.plugins.flybase.client import (
-    FlyBasePlugin,
-    get_flybase_plugin,
     # Backward compatibility aliases
     BDSCPlugin,
+    FlyBasePlugin,
     get_bdsc_plugin,
+    get_flybase_plugin,
 )
 
 __all__ = [

@@ -1,7 +1,6 @@
 """Pydantic schemas for organizations."""
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,8 +11,8 @@ class OrganizationBase(BaseModel):
     """Base schema for organizations."""
 
     name: str = Field(..., min_length=2, max_length=255)
-    description: Optional[str] = None
-    website: Optional[str] = Field(None, max_length=255)
+    description: str | None = None
+    website: str | None = Field(None, max_length=255)
 
 
 class OrganizationCreate(OrganizationBase):
@@ -25,9 +24,9 @@ class OrganizationCreate(OrganizationBase):
 class OrganizationUpdate(BaseModel):
     """Schema for updating an organization."""
 
-    name: Optional[str] = Field(None, min_length=2, max_length=255)
-    description: Optional[str] = None
-    website: Optional[str] = Field(None, max_length=255)
+    name: str | None = Field(None, min_length=2, max_length=255)
+    description: str | None = None
+    website: str | None = Field(None, max_length=255)
 
 
 class OrganizationResponse(OrganizationBase):
@@ -55,7 +54,7 @@ class OrgJoinRequestCreate(BaseModel):
     """Schema for creating an organization join request."""
 
     organization_id: str
-    message: Optional[str] = None
+    message: str | None = None
 
 
 class OrgJoinRequestResponse(BaseModel):
@@ -66,12 +65,12 @@ class OrgJoinRequestResponse(BaseModel):
     organization_name: str
     tenant_id: str
     tenant_name: str
-    requested_by_name: Optional[str] = None
+    requested_by_name: str | None = None
     status: OrgJoinRequestStatus
-    message: Optional[str] = None
+    message: str | None = None
     created_at: datetime
-    responded_at: Optional[datetime] = None
-    responded_by_name: Optional[str] = None
+    responded_at: datetime | None = None
+    responded_by_name: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -79,7 +78,7 @@ class OrgJoinRequestResponse(BaseModel):
 class TenantGeoUpdate(BaseModel):
     """Schema for updating tenant geographic information."""
 
-    city: Optional[str] = Field(None, max_length=100)
-    country: Optional[str] = Field(None, max_length=100)
-    latitude: Optional[float] = Field(None, ge=-90, le=90)
-    longitude: Optional[float] = Field(None, ge=-180, le=180)
+    city: str | None = Field(None, max_length=100)
+    country: str | None = Field(None, max_length=100)
+    latitude: float | None = Field(None, ge=-90, le=90)
+    longitude: float | None = Field(None, ge=-180, le=180)

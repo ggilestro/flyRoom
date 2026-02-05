@@ -1,7 +1,6 @@
 """Authentication utilities for JWT and password handling."""
 
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 from jose import JWTError, jwt
@@ -60,7 +59,7 @@ def create_access_token(
     user_id: str,
     tenant_id: str,
     email: str,
-    expires_delta: Optional[timedelta] = None,
+    expires_delta: timedelta | None = None,
 ) -> str:
     """Create a JWT access token.
 
@@ -74,11 +73,9 @@ def create_access_token(
         str: Encoded JWT token.
     """
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.access_token_expire_minutes
-        )
+        expire = datetime.now(UTC) + timedelta(minutes=settings.access_token_expire_minutes)
 
     to_encode = {
         "sub": user_id,
@@ -94,7 +91,7 @@ def create_access_token(
 def create_refresh_token(
     user_id: str,
     tenant_id: str,
-    expires_delta: Optional[timedelta] = None,
+    expires_delta: timedelta | None = None,
 ) -> str:
     """Create a JWT refresh token.
 
@@ -107,11 +104,9 @@ def create_refresh_token(
         str: Encoded JWT token.
     """
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            days=settings.refresh_token_expire_days
-        )
+        expire = datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
 
     to_encode = {
         "sub": user_id,
@@ -123,7 +118,7 @@ def create_refresh_token(
     return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 
 
-def decode_access_token(token: str) -> Optional[TokenData]:
+def decode_access_token(token: str) -> TokenData | None:
     """Decode and validate a JWT access token.
 
     Args:
@@ -153,7 +148,7 @@ def decode_access_token(token: str) -> Optional[TokenData]:
         return None
 
 
-def decode_refresh_token(token: str) -> Optional[dict]:
+def decode_refresh_token(token: str) -> dict | None:
     """Decode and validate a JWT refresh token.
 
     Args:

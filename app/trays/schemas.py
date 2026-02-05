@@ -1,7 +1,6 @@
 """Pydantic schemas for trays."""
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,11 +11,11 @@ class TrayBase(BaseModel):
     """Base schema for trays."""
 
     name: str = Field(..., min_length=1, max_length=100)
-    description: Optional[str] = None
+    description: str | None = None
     tray_type: TrayType = TrayType.NUMERIC
     max_positions: int = Field(100, ge=1, le=10000)
-    rows: Optional[int] = Field(None, ge=1, le=100)
-    cols: Optional[int] = Field(None, ge=1, le=100)
+    rows: int | None = Field(None, ge=1, le=100)
+    cols: int | None = Field(None, ge=1, le=100)
 
 
 class TrayCreate(TrayBase):
@@ -28,12 +27,12 @@ class TrayCreate(TrayBase):
 class TrayUpdate(BaseModel):
     """Schema for updating a tray."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    description: Optional[str] = None
-    tray_type: Optional[TrayType] = None
-    max_positions: Optional[int] = Field(None, ge=1, le=10000)
-    rows: Optional[int] = Field(None, ge=1, le=100)
-    cols: Optional[int] = Field(None, ge=1, le=100)
+    name: str | None = Field(None, min_length=1, max_length=100)
+    description: str | None = None
+    tray_type: TrayType | None = None
+    max_positions: int | None = Field(None, ge=1, le=10000)
+    rows: int | None = Field(None, ge=1, le=100)
+    cols: int | None = Field(None, ge=1, le=100)
 
 
 class TrayResponse(TrayBase):
@@ -60,8 +59,8 @@ class TrayPositionInfo(BaseModel):
     """Schema for position information in a tray."""
 
     position: str
-    stock_id: Optional[str] = None
-    stock_name: Optional[str] = None  # stock.stock_id
+    stock_id: str | None = None
+    stock_name: str | None = None  # stock.stock_id
 
 
 class TrayStockInfo(BaseModel):
@@ -70,7 +69,7 @@ class TrayStockInfo(BaseModel):
     id: str
     stock_id: str  # User-facing stock identifier
     genotype: str
-    position: Optional[str] = None
+    position: str | None = None
 
 
 class TrayDetailResponse(TrayResponse):

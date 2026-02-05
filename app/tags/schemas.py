@@ -1,21 +1,20 @@
 """Pydantic schemas for tags."""
 
 from pydantic import BaseModel, Field
-from typing import Optional
 
 
 class TagCreate(BaseModel):
     """Schema for creating a tag."""
 
     name: str = Field(..., min_length=1, max_length=100)
-    color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    color: str | None = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
 
 
 class TagUpdate(BaseModel):
     """Schema for updating a tag."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    name: str | None = Field(None, min_length=1, max_length=100)
+    color: str | None = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
 
 
 class TagResponse(BaseModel):
@@ -23,7 +22,7 @@ class TagResponse(BaseModel):
 
     id: str
     name: str
-    color: Optional[str] = None
+    color: str | None = None
 
     model_config = {"from_attributes": True}
 

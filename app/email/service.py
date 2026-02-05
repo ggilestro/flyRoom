@@ -3,9 +3,8 @@
 import logging
 import smtplib
 import ssl
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import Optional
+from email.mime.text import MIMEText
 
 from app.config import get_settings
 
@@ -64,7 +63,7 @@ class EmailService:
         to_email: str,
         subject: str,
         body_html: str,
-        body_text: Optional[str] = None,
+        body_text: str | None = None,
     ) -> bool:
         """Send an email.
 
@@ -88,6 +87,7 @@ class EmailService:
             if body_text is None:
                 # Simple HTML to text conversion
                 import re
+
                 body_text = re.sub(r"<[^>]+>", "", body_html)
                 body_text = re.sub(r"\s+", " ", body_text).strip()
 
@@ -315,7 +315,7 @@ class EmailService:
 
 
 # Singleton instance
-_email_service: Optional[EmailService] = None
+_email_service: EmailService | None = None
 
 
 def get_email_service() -> EmailService:

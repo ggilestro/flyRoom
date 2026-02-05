@@ -1,19 +1,19 @@
 """Stocks API routes."""
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db, CurrentUser, CurrentTenantId
-from app.db.models import StockVisibility, StockOrigin, StockRepository
+from app.db.models import StockOrigin, StockRepository, StockVisibility
+from app.dependencies import CurrentTenantId, CurrentUser, get_db
 from app.stocks.schemas import (
     StockCreate,
-    StockUpdate,
-    StockResponse,
     StockListResponse,
-    StockSearchParams,
+    StockResponse,
     StockScope,
+    StockSearchParams,
+    StockUpdate,
     TagCreate,
     TagResponse,
 )
@@ -33,13 +33,13 @@ def get_service(
 @router.get("", response_model=StockListResponse)
 async def list_stocks(
     service: Annotated[StockService, Depends(get_service)],
-    query: Optional[str] = Query(None, description="Search query"),
-    tag_ids: Optional[str] = Query(None, description="Comma-separated tag IDs"),
-    origin: Optional[StockOrigin] = Query(None, description="Filter by origin type"),
-    repository: Optional[StockRepository] = Query(None, description="Filter by repository"),
-    tray_id: Optional[str] = Query(None, description="Filter by tray ID"),
-    owner_id: Optional[str] = Query(None, description="Filter by owner user ID"),
-    visibility: Optional[StockVisibility] = Query(None, description="Filter by visibility"),
+    query: str | None = Query(None, description="Search query"),
+    tag_ids: str | None = Query(None, description="Comma-separated tag IDs"),
+    origin: StockOrigin | None = Query(None, description="Filter by origin type"),
+    repository: StockRepository | None = Query(None, description="Filter by repository"),
+    tray_id: str | None = Query(None, description="Filter by tray ID"),
+    owner_id: str | None = Query(None, description="Filter by owner user ID"),
+    visibility: StockVisibility | None = Query(None, description="Filter by visibility"),
     scope: StockScope = Query(StockScope.LAB, description="Visibility scope"),
     is_active: bool = Query(True),
     page: int = Query(1, ge=1),
@@ -266,6 +266,7 @@ async def restore_stock(
 
 
 # Tag endpoints
+
 
 @router.get("/tags/", response_model=list[TagResponse])
 async def list_tags(

@@ -226,13 +226,39 @@ pytest -m "not slow"
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests (`pytest`)
-5. Format code (`black .`)
-6. Lint (`ruff check .`)
-7. Commit your changes
-8. Push to the branch
-9. Open a Pull Request
+3. Install pre-commit hooks (first time only):
+   ```bash
+   source .venv/bin/activate
+   pip install pre-commit
+   pre-commit install
+   ```
+4. Make your changes
+5. Run tests (`pytest`)
+6. Pre-commit hooks will automatically run on commit to:
+   - Format code with Black
+   - Sort imports and lint with Ruff
+   - Check for common issues (trailing whitespace, large files, etc.)
+7. For manual checks:
+   ```bash
+   black .                 # Format code
+   ruff check --fix .      # Lint and auto-fix
+   pytest                  # Run tests
+   ```
+8. Commit your changes (hooks run automatically)
+9. Push to the branch
+10. Open a Pull Request
+
+### Pre-commit Hooks
+
+The project uses pre-commit hooks to ensure code quality. These run automatically on every commit:
+
+- **Black** - Code formatting (100 char line length)
+- **Ruff** - Fast Python linter with auto-fix
+- **File checks** - Trailing whitespace, large files, merge conflicts, etc.
+
+Manual-only hooks (run with `pre-commit run --hook-stage manual <hook-name>`):
+- **mypy** - Static type checking
+- **bandit** - Security vulnerability scanning
 
 ## License
 

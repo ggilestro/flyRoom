@@ -1,19 +1,18 @@
 """Tenant service layer for admin operations."""
 
 import secrets
-from typing import Optional
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth.utils import get_password_hash
-from app.db.models import User, Tenant, Stock, UserRole
+from app.db.models import Stock, Tenant, User
 from app.tenants.schemas import (
-    UserInvite,
-    UserUpdateAdmin,
-    UserListResponse,
-    TenantResponse,
     OrganizationInfo,
+    TenantResponse,
+    UserInvite,
+    UserListResponse,
+    UserUpdateAdmin,
 )
 
 
@@ -30,7 +29,7 @@ class TenantService:
         self.db = db
         self.tenant_id = tenant_id
 
-    def get_tenant(self) -> Optional[Tenant]:
+    def get_tenant(self) -> Tenant | None:
         """Get current tenant.
 
         Returns:
@@ -38,7 +37,7 @@ class TenantService:
         """
         return self.db.query(Tenant).filter(Tenant.id == self.tenant_id).first()
 
-    def get_tenant_info(self) -> Optional[TenantResponse]:
+    def get_tenant_info(self) -> TenantResponse | None:
         """Get tenant information with counts.
 
         Returns:
@@ -49,14 +48,12 @@ class TenantService:
             return None
 
         user_count = (
-            self.db.query(func.count(User.id))
-            .filter(User.tenant_id == self.tenant_id)
-            .scalar()
+            self.db.query(func.count(User.id)).filter(User.tenant_id == self.tenant_id).scalar()
         )
 
         stock_count = (
             self.db.query(func.count(Stock.id))
-            .filter(Stock.tenant_id == self.tenant_id, Stock.is_active == True)
+            .filter(Stock.tenant_id == self.tenant_id, Stock.is_active)
             .scalar()
         )
 
@@ -84,7 +81,7 @@ class TenantService:
             longitude=tenant.longitude,
         )
 
-    def update_tenant(self, name: Optional[str] = None) -> Optional[Tenant]:
+    def update_tenant(self, name: str | None = None) -> Tenant | None:
         """Update tenant information.
 
         Args:
@@ -130,7 +127,7 @@ class TenantService:
             for u in users
         ]
 
-    def get_user(self, user_id: str) -> Optional[User]:
+    def get_user(self, user_id: str) -> User | None:
         """Get a user by ID.
 
         Args:
@@ -140,9 +137,7 @@ class TenantService:
             User | None: User if found.
         """
         return (
-            self.db.query(User)
-            .filter(User.id == user_id, User.tenant_id == self.tenant_id)
-            .first()
+            self.db.query(User).filter(User.id == user_id, User.tenant_id == self.tenant_id).first()
         )
 
     def invite_user(self, data: UserInvite) -> tuple[User, str]:
@@ -184,7 +179,7 @@ class TenantService:
 
         return user, temp_password
 
-    def update_user(self, user_id: str, data: UserUpdateAdmin) -> Optional[User]:
+    def update_user(self, user_id: str, data: UserUpdateAdmin) -> User | None:
         """Update a user.
 
         Args:
@@ -239,7 +234,7 @@ class TenantService:
         self.db.commit()
         return True
 
-    def reset_user_password(self, user_id: str) -> Optional[str]:
+    def reset_user_password(self, user_id: str) -> str | None:
         """Reset a user's password.
 
         Args:

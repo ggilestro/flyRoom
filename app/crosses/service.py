@@ -1,21 +1,20 @@
 """Cross service layer."""
 
-from datetime import datetime, timezone, date
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.models import Cross, Stock, CrossStatus
 from app.crosses.schemas import (
-    CrossCreate,
-    CrossUpdate,
-    CrossResponse,
-    CrossListResponse,
-    CrossSearchParams,
     CrossComplete,
+    CrossCreate,
+    CrossListResponse,
+    CrossResponse,
+    CrossSearchParams,
+    CrossUpdate,
     StockSummary,
 )
+from app.db.models import Cross, CrossStatus, Stock
 
 
 class CrossService:
@@ -103,10 +102,7 @@ class CrossService:
         # Pagination
         offset = (params.page - 1) * params.page_size
         crosses = (
-            query.order_by(Cross.created_at.desc())
-            .offset(offset)
-            .limit(params.page_size)
-            .all()
+            query.order_by(Cross.created_at.desc()).offset(offset).limit(params.page_size).all()
         )
 
         pages = (total + params.page_size - 1) // params.page_size
@@ -119,7 +115,7 @@ class CrossService:
             pages=pages,
         )
 
-    def get_cross(self, cross_id: str) -> Optional[Cross]:
+    def get_cross(self, cross_id: str) -> Cross | None:
         """Get a cross by ID.
 
         Args:
@@ -192,7 +188,7 @@ class CrossService:
         self.db.refresh(cross)
         return cross
 
-    def update_cross(self, cross_id: str, data: CrossUpdate) -> Optional[Cross]:
+    def update_cross(self, cross_id: str, data: CrossUpdate) -> Cross | None:
         """Update a cross.
 
         Args:
@@ -230,7 +226,7 @@ class CrossService:
         self.db.refresh(cross)
         return cross
 
-    def start_cross(self, cross_id: str) -> Optional[Cross]:
+    def start_cross(self, cross_id: str) -> Cross | None:
         """Mark a cross as in progress.
 
         Args:
@@ -244,12 +240,12 @@ class CrossService:
             return None
 
         cross.status = CrossStatus.IN_PROGRESS
-        cross.executed_date = datetime.now(timezone.utc)
+        cross.executed_date = datetime.now(UTC)
         self.db.commit()
         self.db.refresh(cross)
         return cross
 
-    def complete_cross(self, cross_id: str, data: CrossComplete) -> Optional[Cross]:
+    def complete_cross(self, cross_id: str, data: CrossComplete) -> Cross | None:
         """Mark a cross as completed.
 
         Args:
@@ -265,7 +261,7 @@ class CrossService:
 
         cross.status = CrossStatus.COMPLETED
         if not cross.executed_date:
-            cross.executed_date = datetime.now(timezone.utc)
+            cross.executed_date = datetime.now(UTC)
 
         if data.offspring_id:
             offspring = (
@@ -283,7 +279,7 @@ class CrossService:
         self.db.refresh(cross)
         return cross
 
-    def fail_cross(self, cross_id: str, notes: Optional[str] = None) -> Optional[Cross]:
+    def fail_cross(self, cross_id: str, notes: str | None = None) -> Cross | None:
         """Mark a cross as failed.
 
         Args:

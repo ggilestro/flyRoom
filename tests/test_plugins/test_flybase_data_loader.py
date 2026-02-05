@@ -6,17 +6,18 @@ from pathlib import Path
 import pytest
 
 from app.plugins.flybase.data_loader import (
-    FlyBaseDataLoader,
-    get_flybase_url,
-    get_repository_url,
-    get_bdsc_search_url,
     COLLECTION_TO_REPOSITORY,
     REPOSITORY_NAMES,
+    FlyBaseDataLoader,
+    get_bdsc_search_url,
+    get_flybase_url,
+    get_repository_url,
 )
 
-
 # Sample TSV data that mimics FlyBase format with multiple collections
-SAMPLE_TSV_HEADER = "FBst\tcollection_short_name\tstock_type_cv\tspecies\tFB_genotype\tdescription\tstock_number"
+SAMPLE_TSV_HEADER = (
+    "FBst\tcollection_short_name\tstock_type_cv\tspecies\tFB_genotype\tdescription\tstock_number"
+)
 SAMPLE_TSV_ROWS = [
     # BDSC stocks
     "FBst0080563\tBloomington\tliving stock ; FBsv:0000002\tDmel\tw[*]; P{Gr21a-GAL80.1756}attP2\tw[*]; P{y[+t7.7] w[+mC]=Gr21a-GAL80.1756}attP2\t80563",
@@ -53,9 +54,7 @@ def data_loader(tmp_path: Path) -> FlyBaseDataLoader:
 class TestFlyBaseDataLoader:
     """Tests for FlyBaseDataLoader class."""
 
-    def test_parse_stocks_tsv(
-        self, data_loader: FlyBaseDataLoader, sample_tsv_file: Path
-    ):
+    def test_parse_stocks_tsv(self, data_loader: FlyBaseDataLoader, sample_tsv_file: Path):
         """Test parsing a TSV file."""
         rows = list(data_loader.parse_stocks_tsv(sample_tsv_file))
 
@@ -84,9 +83,7 @@ class TestFlyBaseDataLoader:
     ):
         """Test filtering to a specific collection."""
         raw_stocks = data_loader.parse_stocks_tsv(sample_tsv_file)
-        vdrc_stocks = list(
-            data_loader.filter_stocks_by_collection(raw_stocks, collection="Vienna")
-        )
+        vdrc_stocks = list(data_loader.filter_stocks_by_collection(raw_stocks, collection="Vienna"))
 
         assert len(vdrc_stocks) == 2
         for stock in vdrc_stocks:
@@ -131,9 +128,7 @@ class TestFlyBaseDataLoader:
         assert result["collection"] == "Vienna"
         assert result["repository"] == "vdrc"
 
-    def test_transform_stock_record_fallback_genotype(
-        self, data_loader: FlyBaseDataLoader
-    ):
+    def test_transform_stock_record_fallback_genotype(self, data_loader: FlyBaseDataLoader):
         """Test that description is used when FB_genotype is empty."""
         row = {
             "stock_number": "1",
@@ -149,9 +144,7 @@ class TestFlyBaseDataLoader:
 
         assert result["genotype"] == "y[1] w[67c23]"
 
-    def test_build_stock_index(
-        self, data_loader: FlyBaseDataLoader, sample_tsv_file: Path
-    ):
+    def test_build_stock_index(self, data_loader: FlyBaseDataLoader, sample_tsv_file: Path):
         """Test building indices from parsed stocks."""
         raw_stocks = data_loader.parse_stocks_tsv(sample_tsv_file)
         filtered_stocks = data_loader.filter_stocks_by_collection(raw_stocks)
@@ -175,9 +168,7 @@ class TestFlyBaseDataLoader:
         assert by_repository["bdsc"]["80563"]["repository"] == "bdsc"
         assert by_repository["vdrc"]["v10004"]["repository"] == "vdrc"
 
-    def test_get_repository_stats(
-        self, data_loader: FlyBaseDataLoader, sample_tsv_file: Path
-    ):
+    def test_get_repository_stats(self, data_loader: FlyBaseDataLoader, sample_tsv_file: Path):
         """Test getting repository statistics."""
         raw_stocks = data_loader.parse_stocks_tsv(sample_tsv_file)
         filtered_stocks = data_loader.filter_stocks_by_collection(raw_stocks)

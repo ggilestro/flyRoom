@@ -1,11 +1,9 @@
 """Pydantic schemas for enhanced import system."""
 
-from datetime import datetime
 from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field
-
 
 # --- Conflict Detection Schemas ---
 
@@ -19,7 +17,9 @@ class ConflictType(str, Enum):
     MISSING_REQUIRED = "missing_required"  # Required field empty even after coalesce
     VALIDATION_ERROR = "validation_error"  # Data format/validation issues
     LLM_FLAGGED = "llm_flagged"  # Future: LLM detected potential issue
-    POTENTIAL_REPOSITORY_MATCH = "potential_repository_match"  # Non-repo stock matches a repository genotype
+    POTENTIAL_REPOSITORY_MATCH = (
+        "potential_repository_match"  # Non-repo stock matches a repository genotype
+    )
 
 
 class RowConflict(BaseModel):
@@ -41,11 +41,11 @@ class RowConflict(BaseModel):
     field: str
     values: dict[str, str] = Field(default_factory=dict)
     message: str
-    remote_value: Optional[str] = None
+    remote_value: str | None = None
     detector: str = "rule"
-    confidence: Optional[float] = None
-    suggestion: Optional[str] = None
-    reasoning: Optional[str] = None
+    confidence: float | None = None
+    suggestion: str | None = None
+    reasoning: str | None = None
 
 
 class ConflictingRow(BaseModel):
@@ -122,8 +122,8 @@ class ColumnMapping(BaseModel):
     """
 
     original: str
-    mapped_to: Optional[str] = None
-    detected_type: Optional[str] = None
+    mapped_to: str | None = None
+    detected_type: str | None = None
 
 
 # --- Interactive Column Mapping Schemas (V2) ---
@@ -140,7 +140,7 @@ class ColumnInfo(BaseModel):
 
     name: str
     sample_values: list[str] = Field(default_factory=list)
-    auto_detected: Optional[str] = None
+    auto_detected: str | None = None
 
 
 class UserColumnMapping(BaseModel):
@@ -155,8 +155,8 @@ class UserColumnMapping(BaseModel):
     """
 
     column_name: str
-    target_field: Optional[str] = None
-    custom_key: Optional[str] = None
+    target_field: str | None = None
+    custom_key: str | None = None
 
 
 class FieldGenerator(BaseModel):
@@ -208,7 +208,7 @@ class TrayResolution(BaseModel):
 
     tray_name: str
     action: str  # "use_existing", "create_new", "skip"
-    new_name: Optional[str] = None
+    new_name: str | None = None
 
 
 class ImportExecuteV2Request(BaseModel):

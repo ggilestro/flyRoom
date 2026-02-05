@@ -1,9 +1,8 @@
 """Organization service layer."""
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from difflib import SequenceMatcher
-from typing import Optional
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -13,13 +12,12 @@ from app.db.models import (
     OrganizationJoinRequest,
     OrgJoinRequestStatus,
     Tenant,
-    User,
 )
 from app.organizations.schemas import (
     OrganizationCreate,
-    OrganizationUpdate,
     OrganizationResponse,
     OrganizationSearchResult,
+    OrganizationUpdate,
     OrgJoinRequestCreate,
     OrgJoinRequestResponse,
     TenantGeoUpdate,
@@ -39,16 +37,16 @@ def normalize_name(name: str) -> str:
     normalized = name.lower()
     # Remove common prefixes/suffixes that cause duplicates
     patterns_to_remove = [
-        r'^the\s+',  # "The University" -> "University"
-        r'\s+university$',  # Handled separately
-        r'\s+college$',
-        r'\s+institute$',
+        r"^the\s+",  # "The University" -> "University"
+        r"\s+university$",  # Handled separately
+        r"\s+college$",
+        r"\s+institute$",
     ]
     for pattern in patterns_to_remove:
-        normalized = re.sub(pattern, '', normalized)
+        normalized = re.sub(pattern, "", normalized)
     # Remove punctuation and extra whitespace
-    normalized = re.sub(r'[^\w\s]', '', normalized)
-    normalized = ' '.join(normalized.split())
+    normalized = re.sub(r"[^\w\s]", "", normalized)
+    normalized = " ".join(normalized.split())
     return normalized
 
 
@@ -62,9 +60,9 @@ def slugify(name: str) -> str:
         str: URL-friendly slug.
     """
     slug = name.lower()
-    slug = re.sub(r'[^\w\s-]', '', slug)
-    slug = re.sub(r'[-\s]+', '-', slug)
-    return slug.strip('-')
+    slug = re.sub(r"[^\w\s-]", "", slug)
+    slug = re.sub(r"[-\s]+", "-", slug)
+    return slug.strip("-")
 
 
 def similarity_score(s1: str, s2: str) -> float:
@@ -91,9 +89,7 @@ class OrganizationService:
         """
         self.db = db
 
-    def list_organizations(
-        self, skip: int = 0, limit: int = 100
-    ) -> list[OrganizationResponse]:
+    def list_organizations(self, skip: int = 0, limit: int = 100) -> list[OrganizationResponse]:
         """List all active organizations.
 
         Args:
@@ -105,7 +101,7 @@ class OrganizationService:
         """
         organizations = (
             self.db.query(Organization)
-            .filter(Organization.is_active == True)
+            .filter(Organization.is_active)
             .order_by(Organization.name)
             .offset(skip)
             .limit(limit)
@@ -119,19 +115,21 @@ class OrganizationService:
                 .filter(Tenant.organization_id == org.id)
                 .scalar()
             )
-            result.append(OrganizationResponse(
-                id=org.id,
-                name=org.name,
-                slug=org.slug,
-                description=org.description,
-                website=org.website,
-                is_active=org.is_active,
-                created_at=org.created_at,
-                lab_count=lab_count,
-            ))
+            result.append(
+                OrganizationResponse(
+                    id=org.id,
+                    name=org.name,
+                    slug=org.slug,
+                    description=org.description,
+                    website=org.website,
+                    is_active=org.is_active,
+                    created_at=org.created_at,
+                    lab_count=lab_count,
+                )
+            )
         return result
 
-    def get_organization(self, org_id: str) -> Optional[OrganizationResponse]:
+    def get_organization(self, org_id: str) -> OrganizationResponse | None:
         """Get an organization by ID.
 
         Args:
@@ -140,18 +138,12 @@ class OrganizationService:
         Returns:
             OrganizationResponse | None: Organization if found.
         """
-        org = (
-            self.db.query(Organization)
-            .filter(Organization.id == org_id)
-            .first()
-        )
+        org = self.db.query(Organization).filter(Organization.id == org_id).first()
         if not org:
             return None
 
         lab_count = (
-            self.db.query(func.count(Tenant.id))
-            .filter(Tenant.organization_id == org.id)
-            .scalar()
+            self.db.query(func.count(Tenant.id)).filter(Tenant.organization_id == org.id).scalar()
         )
         return OrganizationResponse(
             id=org.id,
@@ -178,11 +170,7 @@ class OrganizationService:
             list[OrganizationSearchResult]: Matching organizations sorted by score.
         """
         normalized_query = normalize_name(query)
-        organizations = (
-            self.db.query(Organization)
-            .filter(Organization.is_active == True)
-            .all()
-        )
+        organizations = self.db.query(Organization).filter(Organization.is_active).all()
 
         results = []
         for org in organizations:
@@ -192,20 +180,20 @@ class OrganizationService:
                 similarity_score(normalized_query, org.normalized_name),
             )
             if score >= min_score:
-                results.append(OrganizationSearchResult(
-                    id=org.id,
-                    name=org.name,
-                    slug=org.slug,
-                    similarity_score=score,
-                ))
+                results.append(
+                    OrganizationSearchResult(
+                        id=org.id,
+                        name=org.name,
+                        slug=org.slug,
+                        similarity_score=score,
+                    )
+                )
 
         # Sort by score descending
         results.sort(key=lambda x: x.similarity_score, reverse=True)
         return results[:limit]
 
-    def create_organization(
-        self, data: OrganizationCreate, tenant_id: str
-    ) -> Organization:
+    def create_organization(self, data: OrganizationCreate, tenant_id: str) -> Organization:
         """Create a new organization and make the tenant the org admin.
 
         Args:
@@ -222,11 +210,7 @@ class OrganizationService:
         normalized = normalize_name(data.name)
 
         # Check for duplicate slug
-        existing = (
-            self.db.query(Organization)
-            .filter(Organization.slug == slug)
-            .first()
-        )
+        existing = self.db.query(Organization).filter(Organization.slug == slug).first()
         if existing:
             raise ValueError(f"Organization with slug '{slug}' already exists")
 
@@ -259,9 +243,7 @@ class OrganizationService:
         self.db.refresh(org)
         return org
 
-    def update_organization(
-        self, org_id: str, data: OrganizationUpdate
-    ) -> Optional[Organization]:
+    def update_organization(self, org_id: str, data: OrganizationUpdate) -> Organization | None:
         """Update an organization.
 
         Args:
@@ -271,11 +253,7 @@ class OrganizationService:
         Returns:
             Organization | None: Updated organization if found.
         """
-        org = (
-            self.db.query(Organization)
-            .filter(Organization.id == org_id)
-            .first()
-        )
+        org = self.db.query(Organization).filter(Organization.id == org_id).first()
         if not org:
             return None
 
@@ -307,9 +285,7 @@ class OrgJoinRequestService:
         self.tenant_id = tenant_id
         self.user_id = user_id
 
-    def create_join_request(
-        self, data: OrgJoinRequestCreate
-    ) -> OrganizationJoinRequest:
+    def create_join_request(self, data: OrgJoinRequestCreate) -> OrganizationJoinRequest:
         """Create a join request to an organization.
 
         Args:
@@ -321,11 +297,7 @@ class OrgJoinRequestService:
         Raises:
             ValueError: If tenant already in org or request already pending.
         """
-        tenant = (
-            self.db.query(Tenant)
-            .filter(Tenant.id == self.tenant_id)
-            .first()
-        )
+        tenant = self.db.query(Tenant).filter(Tenant.id == self.tenant_id).first()
         if tenant.organization_id:
             raise ValueError("Lab is already part of an organization")
 
@@ -354,9 +326,7 @@ class OrgJoinRequestService:
         self.db.refresh(request)
         return request
 
-    def _request_to_response(
-        self, request: OrganizationJoinRequest
-    ) -> OrgJoinRequestResponse:
+    def _request_to_response(self, request: OrganizationJoinRequest) -> OrgJoinRequestResponse:
         """Convert join request model to response schema."""
         return OrgJoinRequestResponse(
             id=request.id,
@@ -364,16 +334,12 @@ class OrgJoinRequestService:
             organization_name=request.organization.name,
             tenant_id=request.tenant_id,
             tenant_name=request.tenant.name,
-            requested_by_name=(
-                request.requested_by.full_name if request.requested_by else None
-            ),
+            requested_by_name=(request.requested_by.full_name if request.requested_by else None),
             status=request.status,
             message=request.message,
             created_at=request.created_at,
             responded_at=request.responded_at,
-            responded_by_name=(
-                request.responded_by.full_name if request.responded_by else None
-            ),
+            responded_by_name=(request.responded_by.full_name if request.responded_by else None),
         )
 
     def list_pending_requests(self) -> list[OrgJoinRequestResponse]:
@@ -382,11 +348,7 @@ class OrgJoinRequestService:
         Returns:
             list[OrgJoinRequestResponse]: Pending requests.
         """
-        tenant = (
-            self.db.query(Tenant)
-            .filter(Tenant.id == self.tenant_id)
-            .first()
-        )
+        tenant = self.db.query(Tenant).filter(Tenant.id == self.tenant_id).first()
         if not tenant or not tenant.is_org_admin or not tenant.organization_id:
             return []
 
@@ -401,7 +363,7 @@ class OrgJoinRequestService:
         )
         return [self._request_to_response(r) for r in requests]
 
-    def approve_request(self, request_id: str) -> Optional[OrganizationJoinRequest]:
+    def approve_request(self, request_id: str) -> OrganizationJoinRequest | None:
         """Approve a join request.
 
         Args:
@@ -410,11 +372,7 @@ class OrgJoinRequestService:
         Returns:
             OrganizationJoinRequest | None: Updated request if found.
         """
-        tenant = (
-            self.db.query(Tenant)
-            .filter(Tenant.id == self.tenant_id)
-            .first()
-        )
+        tenant = self.db.query(Tenant).filter(Tenant.id == self.tenant_id).first()
         if not tenant or not tenant.is_org_admin:
             return None
 
@@ -432,15 +390,11 @@ class OrgJoinRequestService:
 
         # Update request status
         request.status = OrgJoinRequestStatus.APPROVED
-        request.responded_at = datetime.now(timezone.utc)
+        request.responded_at = datetime.now(UTC)
         request.responded_by_id = self.user_id
 
         # Add tenant to organization
-        requesting_tenant = (
-            self.db.query(Tenant)
-            .filter(Tenant.id == request.tenant_id)
-            .first()
-        )
+        requesting_tenant = self.db.query(Tenant).filter(Tenant.id == request.tenant_id).first()
         if requesting_tenant:
             requesting_tenant.organization_id = request.organization_id
 
@@ -448,7 +402,7 @@ class OrgJoinRequestService:
         self.db.refresh(request)
         return request
 
-    def reject_request(self, request_id: str) -> Optional[OrganizationJoinRequest]:
+    def reject_request(self, request_id: str) -> OrganizationJoinRequest | None:
         """Reject a join request.
 
         Args:
@@ -457,11 +411,7 @@ class OrgJoinRequestService:
         Returns:
             OrganizationJoinRequest | None: Updated request if found.
         """
-        tenant = (
-            self.db.query(Tenant)
-            .filter(Tenant.id == self.tenant_id)
-            .first()
-        )
+        tenant = self.db.query(Tenant).filter(Tenant.id == self.tenant_id).first()
         if not tenant or not tenant.is_org_admin:
             return None
 
@@ -478,7 +428,7 @@ class OrgJoinRequestService:
             return None
 
         request.status = OrgJoinRequestStatus.REJECTED
-        request.responded_at = datetime.now(timezone.utc)
+        request.responded_at = datetime.now(UTC)
         request.responded_by_id = self.user_id
 
         self.db.commit()
@@ -499,7 +449,7 @@ class TenantGeoService:
         self.db = db
         self.tenant_id = tenant_id
 
-    def update_geo_info(self, data: TenantGeoUpdate) -> Optional[Tenant]:
+    def update_geo_info(self, data: TenantGeoUpdate) -> Tenant | None:
         """Update tenant geographic information.
 
         Args:
@@ -508,11 +458,7 @@ class TenantGeoService:
         Returns:
             Tenant | None: Updated tenant if found.
         """
-        tenant = (
-            self.db.query(Tenant)
-            .filter(Tenant.id == self.tenant_id)
-            .first()
-        )
+        tenant = self.db.query(Tenant).filter(Tenant.id == self.tenant_id).first()
         if not tenant:
             return None
 
@@ -535,11 +481,7 @@ class TenantGeoService:
         Returns:
             bool: True if successful.
         """
-        tenant = (
-            self.db.query(Tenant)
-            .filter(Tenant.id == self.tenant_id)
-            .first()
-        )
+        tenant = self.db.query(Tenant).filter(Tenant.id == self.tenant_id).first()
         if not tenant or not tenant.organization_id:
             return False
 
@@ -549,7 +491,7 @@ class TenantGeoService:
                 self.db.query(Tenant)
                 .filter(
                     Tenant.organization_id == tenant.organization_id,
-                    Tenant.is_org_admin == True,
+                    Tenant.is_org_admin,
                     Tenant.id != tenant.id,
                 )
                 .count()

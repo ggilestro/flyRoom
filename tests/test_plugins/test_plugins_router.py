@@ -6,13 +6,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.plugins.router import router
 from app.plugins.base import StockImportData
-from app.plugins.schemas import (
-    ExternalStockResult,
-    ImportFromExternalResult,
-    RepositoryInfo,
-)
+from app.plugins.router import router
 
 
 @pytest.fixture
@@ -23,8 +18,40 @@ def mock_flybase_plugin():
     plugin.source_id = "flybase"
 
     # Mock search
-    plugin.search = AsyncMock(return_value=[
-        StockImportData(
+    plugin.search = AsyncMock(
+        return_value=[
+            StockImportData(
+                external_id="80563",
+                genotype="w[*]; P{Gr21a-GAL80.1756}attP2",
+                source="bdsc",
+                metadata={
+                    "flybase_id": "FBst0080563",
+                    "flybase_url": "https://flybase.org/reports/FBst0080563",
+                    "repository": "bdsc",
+                    "repository_name": "Bloomington Drosophila Stock Center",
+                    "repository_url": "https://bdsc.indiana.edu/Home/Search?presearch=80563",
+                    "species": "Dmel",
+                },
+            ),
+            StockImportData(
+                external_id="v10004",
+                genotype="w[1118]; P{GD14516}v10004",
+                source="vdrc",
+                metadata={
+                    "flybase_id": "FBst0100001",
+                    "flybase_url": "https://flybase.org/reports/FBst0100001",
+                    "repository": "vdrc",
+                    "repository_name": "Vienna Drosophila Resource Center",
+                    "repository_url": "https://stockcenter.vdrc.at/control/product/~product_id=10004",
+                    "species": "Dmel",
+                },
+            ),
+        ]
+    )
+
+    # Mock get_details
+    plugin.get_details = AsyncMock(
+        return_value=StockImportData(
             external_id="80563",
             genotype="w[*]; P{Gr21a-GAL80.1756}attP2",
             source="bdsc",
@@ -35,57 +62,33 @@ def mock_flybase_plugin():
                 "repository_name": "Bloomington Drosophila Stock Center",
                 "repository_url": "https://bdsc.indiana.edu/Home/Search?presearch=80563",
                 "species": "Dmel",
-            }
-        ),
-        StockImportData(
-            external_id="v10004",
-            genotype="w[1118]; P{GD14516}v10004",
-            source="vdrc",
-            metadata={
-                "flybase_id": "FBst0100001",
-                "flybase_url": "https://flybase.org/reports/FBst0100001",
-                "repository": "vdrc",
-                "repository_name": "Vienna Drosophila Resource Center",
-                "repository_url": "https://stockcenter.vdrc.at/control/product/~product_id=10004",
-                "species": "Dmel",
-            }
-        ),
-    ])
-
-    # Mock get_details
-    plugin.get_details = AsyncMock(return_value=StockImportData(
-        external_id="80563",
-        genotype="w[*]; P{Gr21a-GAL80.1756}attP2",
-        source="bdsc",
-        metadata={
-            "flybase_id": "FBst0080563",
-            "flybase_url": "https://flybase.org/reports/FBst0080563",
-            "repository": "bdsc",
-            "repository_name": "Bloomington Drosophila Stock Center",
-            "repository_url": "https://bdsc.indiana.edu/Home/Search?presearch=80563",
-            "species": "Dmel",
-            "data_version": "FB2025_01",
-        }
-    ))
+                "data_version": "FB2025_01",
+            },
+        )
+    )
 
     # Mock get_stats
-    plugin.get_stats = AsyncMock(return_value={
-        "total_stocks": 188797,
-        "data_version": "FB2025_01",
-        "cache_valid": True,
-        "repositories": [
+    plugin.get_stats = AsyncMock(
+        return_value={
+            "total_stocks": 188797,
+            "data_version": "FB2025_01",
+            "cache_valid": True,
+            "repositories": [
+                {"id": "bdsc", "name": "Bloomington Drosophila Stock Center", "count": 91288},
+                {"id": "vdrc", "name": "Vienna Drosophila Resource Center", "count": 38371},
+                {"id": "kyoto", "name": "Kyoto Stock Center", "count": 26204},
+            ],
+        }
+    )
+
+    # Mock list_repositories
+    plugin.list_repositories = AsyncMock(
+        return_value=[
             {"id": "bdsc", "name": "Bloomington Drosophila Stock Center", "count": 91288},
             {"id": "vdrc", "name": "Vienna Drosophila Resource Center", "count": 38371},
             {"id": "kyoto", "name": "Kyoto Stock Center", "count": 26204},
-        ],
-    })
-
-    # Mock list_repositories
-    plugin.list_repositories = AsyncMock(return_value=[
-        {"id": "bdsc", "name": "Bloomington Drosophila Stock Center", "count": 91288},
-        {"id": "vdrc", "name": "Vienna Drosophila Resource Center", "count": 38371},
-        {"id": "kyoto", "name": "Kyoto Stock Center", "count": 26204},
-    ])
+        ]
+    )
 
     # Mock refresh_data
     plugin.refresh_data = AsyncMock(return_value=188797)
@@ -261,8 +264,7 @@ class TestImportEndpoint:
         """
         # Without proper auth setup, this will fail with 401/422
         response = client.post(
-            "/api/plugins/import",
-            json={"stocks": [{"external_id": "80563", "source": "bdsc"}]}
+            "/api/plugins/import", json={"stocks": [{"external_id": "80563", "source": "bdsc"}]}
         )
 
         # Should fail due to missing authentication

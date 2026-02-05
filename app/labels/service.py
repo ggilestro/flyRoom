@@ -1,17 +1,16 @@
 """Label service layer."""
 
 import base64
-from typing import Optional
 
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import Stock
 from app.labels.generators import (
-    generate_qr_code,
     generate_barcode,
     generate_label_content,
-    list_label_formats,
+    generate_qr_code,
     get_label_format,
+    list_label_formats,
 )
 
 
@@ -28,7 +27,7 @@ class LabelService:
         self.db = db
         self.tenant_id = tenant_id
 
-    def get_stock(self, stock_id: str) -> Optional[Stock]:
+    def get_stock(self, stock_id: str) -> Stock | None:
         """Get a stock by ID.
 
         Args:
@@ -44,7 +43,7 @@ class LabelService:
             .first()
         )
 
-    def generate_qr(self, stock_id: str, size: int = 200) -> Optional[bytes]:
+    def generate_qr(self, stock_id: str, size: int = 200) -> bytes | None:
         """Generate QR code for a stock.
 
         Args:
@@ -61,7 +60,7 @@ class LabelService:
         qr_data = f"flypush://{stock.stock_id}"
         return generate_qr_code(qr_data, size=size)
 
-    def generate_barcode(self, stock_id: str) -> Optional[bytes]:
+    def generate_barcode(self, stock_id: str) -> bytes | None:
         """Generate barcode for a stock.
 
         Args:
@@ -82,7 +81,7 @@ class LabelService:
         format_name: str = "brother_29mm",
         include_qr: bool = True,
         include_barcode: bool = True,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Generate full label data for a stock.
 
         Args:

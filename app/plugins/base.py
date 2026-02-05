@@ -1,7 +1,6 @@
 """Base plugin interface for external stock center integrations."""
 
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -46,7 +45,7 @@ class StockPlugin(ABC):
         pass
 
     @abstractmethod
-    async def get_details(self, external_id: str) -> Optional[StockImportData]:
+    async def get_details(self, external_id: str) -> StockImportData | None:
         """Get detailed info for a specific stock.
 
         Args:

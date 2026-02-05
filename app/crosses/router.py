@@ -1,21 +1,21 @@
 """Crosses API routes."""
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.db.models import CrossStatus
-from app.dependencies import get_db, CurrentUser, CurrentTenantId
 from app.crosses.schemas import (
-    CrossCreate,
-    CrossUpdate,
-    CrossResponse,
-    CrossListResponse,
-    CrossSearchParams,
     CrossComplete,
+    CrossCreate,
+    CrossListResponse,
+    CrossResponse,
+    CrossSearchParams,
+    CrossUpdate,
 )
 from app.crosses.service import CrossService, get_cross_service
+from app.db.models import CrossStatus
+from app.dependencies import CurrentTenantId, CurrentUser, get_db
 
 router = APIRouter()
 
@@ -31,8 +31,8 @@ def get_service(
 @router.get("", response_model=CrossListResponse)
 async def list_crosses(
     service: Annotated[CrossService, Depends(get_service)],
-    query: Optional[str] = Query(None, description="Search query"),
-    status: Optional[CrossStatus] = Query(None, description="Filter by status"),
+    query: str | None = Query(None, description="Search query"),
+    status: CrossStatus | None = Query(None, description="Filter by status"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
@@ -198,7 +198,7 @@ async def complete_cross(
 async def fail_cross(
     cross_id: str,
     service: Annotated[CrossService, Depends(get_service)],
-    notes: Optional[str] = None,
+    notes: str | None = None,
 ):
     """Mark a cross as failed.
 

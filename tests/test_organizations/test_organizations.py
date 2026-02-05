@@ -1,11 +1,10 @@
 """Tests for organizations module."""
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.db.models import Organization, Tenant, User, UserRole
-from app.organizations.service import normalize_name, slugify, similarity_score
+from app.db.models import Organization, Tenant
+from app.organizations.service import normalize_name, similarity_score, slugify
 
 
 class TestHelperFunctions:
@@ -52,9 +51,7 @@ class TestHelperFunctions:
 class TestOrganizationService:
     """Tests for OrganizationService."""
 
-    def test_list_organizations_empty(
-        self, db: Session
-    ):
+    def test_list_organizations_empty(self, db: Session):
         """Test listing organizations when none exist."""
         from app.organizations.service import OrganizationService
 
@@ -62,9 +59,7 @@ class TestOrganizationService:
         result = service.list_organizations()
         assert result == []
 
-    def test_list_organizations_with_data(
-        self, db: Session, test_organization: Organization
-    ):
+    def test_list_organizations_with_data(self, db: Session, test_organization: Organization):
         """Test listing organizations returns existing organizations."""
         from app.organizations.service import OrganizationService
 
@@ -73,9 +68,7 @@ class TestOrganizationService:
         assert len(result) == 1
         assert result[0].name == test_organization.name
 
-    def test_get_organization(
-        self, db: Session, test_organization: Organization
-    ):
+    def test_get_organization(self, db: Session, test_organization: Organization):
         """Test getting an organization by ID."""
         from app.organizations.service import OrganizationService
 
@@ -92,9 +85,7 @@ class TestOrganizationService:
         result = service.get_organization("nonexistent-id")
         assert result is None
 
-    def test_search_organizations(
-        self, db: Session, test_organization: Organization
-    ):
+    def test_search_organizations(self, db: Session, test_organization: Organization):
         """Test searching organizations."""
         from app.organizations.service import OrganizationService
 
@@ -113,12 +104,10 @@ class TestOrganizationService:
         result = service.search_organizations("nonexistent", min_score=0.9)
         assert result == []
 
-    def test_create_organization_success(
-        self, db: Session, test_tenant: Tenant
-    ):
+    def test_create_organization_success(self, db: Session, test_tenant: Tenant):
         """Test creating an organization."""
-        from app.organizations.service import OrganizationService
         from app.organizations.schemas import OrganizationCreate
+        from app.organizations.service import OrganizationService
 
         service = OrganizationService(db)
         data = OrganizationCreate(
@@ -138,8 +127,8 @@ class TestOrganizationService:
         self, db: Session, test_organization: Organization, test_tenant: Tenant
     ):
         """Test creating organization with duplicate slug fails."""
-        from app.organizations.service import OrganizationService
         from app.organizations.schemas import OrganizationCreate
+        from app.organizations.service import OrganizationService
 
         service = OrganizationService(db)
         data = OrganizationCreate(
@@ -154,8 +143,8 @@ class TestTenantGeoService:
 
     def test_update_geo_info(self, db: Session, test_tenant: Tenant):
         """Test updating tenant geographic info."""
-        from app.organizations.service import TenantGeoService
         from app.organizations.schemas import TenantGeoUpdate
+        from app.organizations.service import TenantGeoService
 
         service = TenantGeoService(db, test_tenant.id)
         data = TenantGeoUpdate(

@@ -69,12 +69,26 @@ exclude = '''
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-select = ["E", "F", "W", "I", "N", "UP", "B", "C4"]
-ignore = ["E501"]
 exclude = [".git", ".venv", "__pycache__", "alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4"]
+ignore = [
+    "E501",  # Line too long (handled by black)
+    "B008",  # Do not perform function calls in argument defaults (FastAPI Depends() pattern)
+    "B904",  # Exception chaining - can be added later for better error context
+]
+
+[tool.ruff.lint.per-file-ignores]
+"app/main.py" = ["E402"]  # Module level import not at top of file (needed for logging setup)
+"tests/conftest.py" = ["E402"]  # Module level import not at top of file (needed for env setup)
 
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = [".venv", "tests", "alembic/versions"]
+skips = ["B101"]  # Skip assert_used check as it's used in tests

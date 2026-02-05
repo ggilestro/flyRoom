@@ -1,9 +1,8 @@
 """Tests for the tags API."""
 
 import pytest
-from unittest.mock import MagicMock, patch
 
-from app.tags.schemas import TagCreate, TagUpdate, TagResponse, TagWithCount
+from app.tags.schemas import TagCreate, TagResponse, TagUpdate, TagWithCount
 
 
 class TestTagSchemas:

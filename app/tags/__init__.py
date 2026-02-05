@@ -3,8 +3,8 @@
 from app.tags.router import router
 from app.tags.schemas import (
     TagCreate,
-    TagUpdate,
     TagResponse,
+    TagUpdate,
     TagWithCount,
 )
 

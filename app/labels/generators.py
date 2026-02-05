@@ -4,9 +4,9 @@ import io
 from typing import Literal
 
 import qrcode
-from qrcode.constants import ERROR_CORRECT_M
 from barcode import Code128
 from barcode.writer import ImageWriter
+from qrcode.constants import ERROR_CORRECT_M
 
 
 def generate_qr_code(data: str, size: int = 200, box_size: int = 10) -> bytes:
@@ -56,13 +56,15 @@ def generate_barcode(data: str, barcode_type: Literal["code128"] = "code128") ->
     writer = ImageWriter()
 
     # Configure writer options
-    writer.set_options({
-        "module_width": 0.3,
-        "module_height": 10,
-        "font_size": 8,
-        "text_distance": 3,
-        "quiet_zone": 2,
-    })
+    writer.set_options(
+        {
+            "module_width": 0.3,
+            "module_height": 10,
+            "font_size": 8,
+            "text_distance": 3,
+            "quiet_zone": 2,
+        }
+    )
 
     code = Code128(data, writer=writer)
     code.write(buffer)
@@ -92,7 +94,7 @@ def generate_label_content(
     # Truncate genotype if too long
     display_genotype = genotype
     if len(genotype) > max_genotype_length:
-        display_genotype = genotype[:max_genotype_length - 3] + "..."
+        display_genotype = genotype[: max_genotype_length - 3] + "..."
 
     content = {
         "stock_id": stock_id,
@@ -164,7 +166,4 @@ def list_label_formats() -> list[dict]:
     Returns:
         list[dict]: List of label format configurations.
     """
-    return [
-        {"id": k, **v}
-        for k, v in LABEL_FORMATS.items()
-    ]
+    return [{"id": k, **v} for k, v in LABEL_FORMATS.items()]

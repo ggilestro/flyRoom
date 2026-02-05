@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.db.models import Tray, TrayType, Stock, Tenant, User
+from app.db.models import Stock, Tenant, Tray, TrayType, User
 
 
 class TestTrayService:
@@ -19,9 +19,7 @@ class TestTrayService:
         assert result.items == []
         assert result.total == 0
 
-    def test_list_trays_with_data(
-        self, db: Session, test_tenant: Tenant, test_tray: Tray
-    ):
+    def test_list_trays_with_data(self, db: Session, test_tenant: Tenant, test_tray: Tray):
         """Test listing trays returns existing trays."""
         from app.trays.service import TrayService
 
@@ -49,8 +47,8 @@ class TestTrayService:
 
     def test_create_tray_numeric(self, db: Session, test_tenant: Tenant):
         """Test creating a numeric tray."""
-        from app.trays.service import TrayService
         from app.trays.schemas import TrayCreate
+        from app.trays.service import TrayService
 
         service = TrayService(db, test_tenant.id)
         data = TrayCreate(
@@ -67,8 +65,8 @@ class TestTrayService:
 
     def test_create_tray_grid(self, db: Session, test_tenant: Tenant):
         """Test creating a grid tray."""
-        from app.trays.service import TrayService
         from app.trays.schemas import TrayCreate
+        from app.trays.service import TrayService
 
         service = TrayService(db, test_tenant.id)
         data = TrayCreate(
@@ -85,12 +83,10 @@ class TestTrayService:
         assert tray.cols == 12
         assert tray.max_positions == 96  # 8 * 12
 
-    def test_create_tray_duplicate_name(
-        self, db: Session, test_tenant: Tenant, test_tray: Tray
-    ):
+    def test_create_tray_duplicate_name(self, db: Session, test_tenant: Tenant, test_tray: Tray):
         """Test creating tray with duplicate name fails."""
-        from app.trays.service import TrayService
         from app.trays.schemas import TrayCreate
+        from app.trays.service import TrayService
 
         service = TrayService(db, test_tenant.id)
         data = TrayCreate(name=test_tray.name)  # Same name
@@ -99,8 +95,8 @@ class TestTrayService:
 
     def test_update_tray(self, db: Session, test_tenant: Tenant, test_tray: Tray):
         """Test updating a tray."""
-        from app.trays.service import TrayService
         from app.trays.schemas import TrayUpdate
+        from app.trays.service import TrayService
 
         service = TrayService(db, test_tenant.id)
         data = TrayUpdate(description="Updated description")
@@ -141,9 +137,10 @@ class TestTrayService:
         self, db: Session, test_tenant: Tenant, test_user: User
     ):
         """Test getting tray detail with position information."""
-        from app.trays.service import TrayService
-        from app.trays.schemas import TrayCreate
         from uuid import uuid4
+
+        from app.trays.schemas import TrayCreate
+        from app.trays.service import TrayService
 
         service = TrayService(db, test_tenant.id)
 
@@ -181,9 +178,7 @@ class TestTrayService:
 class TestTrayRouter:
     """Tests for tray API endpoints."""
 
-    def test_list_trays(
-        self, authenticated_client: TestClient, test_tray: Tray
-    ):
+    def test_list_trays(self, authenticated_client: TestClient, test_tray: Tray):
         """Test listing trays via API."""
         response = authenticated_client.get("/api/trays")
 
@@ -208,9 +203,7 @@ class TestTrayRouter:
         data = response.json()
         assert data["name"] == "API Tray"
 
-    def test_get_tray(
-        self, authenticated_client: TestClient, test_tray: Tray
-    ):
+    def test_get_tray(self, authenticated_client: TestClient, test_tray: Tray):
         """Test getting a tray via API."""
         response = authenticated_client.get(f"/api/trays/{test_tray.id}")
 
@@ -220,9 +213,7 @@ class TestTrayRouter:
         # Should include positions
         assert "positions" in data
 
-    def test_delete_tray(
-        self, authenticated_client: TestClient, test_tray: Tray
-    ):
+    def test_delete_tray(self, authenticated_client: TestClient, test_tray: Tray):
         """Test deleting a tray via API."""
         response = authenticated_client.delete(f"/api/trays/{test_tray.id}")
         assert response.status_code == 204

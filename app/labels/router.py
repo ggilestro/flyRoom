@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db, CurrentTenantId
+from app.dependencies import CurrentTenantId, get_db
 from app.labels.service import LabelService, get_label_service
 
 router = APIRouter()

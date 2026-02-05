@@ -1,7 +1,7 @@
 """Database engine and session configuration."""
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
 
@@ -14,11 +14,13 @@ engine_kwargs = {
 }
 
 if not settings.database_url.startswith("sqlite"):
-    engine_kwargs.update({
-        "pool_pre_ping": True,
-        "pool_size": 5,
-        "max_overflow": 10,
-    })
+    engine_kwargs.update(
+        {
+            "pool_pre_ping": True,
+            "pool_size": 5,
+            "max_overflow": 10,
+        }
+    )
 else:
     engine_kwargs["connect_args"] = {"check_same_thread": False}
 

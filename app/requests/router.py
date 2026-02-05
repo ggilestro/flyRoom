@@ -1,18 +1,17 @@
 """API router for stock requests."""
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-
 from sqlalchemy.orm import Session
 
 from app.db.models import StockRequestStatus
-from app.dependencies import get_db, CurrentUser, CurrentTenantId
+from app.dependencies import CurrentTenantId, CurrentUser, get_db
 from app.requests.schemas import (
     StockRequestCreate,
+    StockRequestListResponse,
     StockRequestRespond,
     StockRequestResponse,
-    StockRequestListResponse,
     StockRequestStats,
 )
 from app.requests.service import StockRequestService
@@ -45,7 +44,7 @@ async def create_request(
 @router.get("/outgoing", response_model=StockRequestListResponse)
 async def list_outgoing_requests(
     service: Annotated[StockRequestService, Depends(get_request_service)],
-    status: Optional[StockRequestStatus] = None,
+    status: StockRequestStatus | None = None,
     page: int = 1,
     page_size: int = 20,
 ):
@@ -56,7 +55,7 @@ async def list_outgoing_requests(
 @router.get("/incoming", response_model=StockRequestListResponse)
 async def list_incoming_requests(
     service: Annotated[StockRequestService, Depends(get_request_service)],
-    status: Optional[StockRequestStatus] = None,
+    status: StockRequestStatus | None = None,
     page: int = 1,
     page_size: int = 20,
 ):
@@ -88,15 +87,14 @@ async def get_request(
 async def approve_request(
     request_id: str,
     service: Annotated[StockRequestService, Depends(get_request_service)],
-    data: Optional[StockRequestRespond] = None,
+    data: StockRequestRespond | None = None,
 ):
     """Approve a stock request (owner lab only)."""
     response_message = data.response_message if data else None
     request = service.approve_request(request_id, response_message)
     if not request:
         raise HTTPException(
-            status_code=404,
-            detail="Request not found or you don't have permission"
+            status_code=404, detail="Request not found or you don't have permission"
         )
     return service._request_to_response(request)
 
@@ -105,15 +103,14 @@ async def approve_request(
 async def reject_request(
     request_id: str,
     service: Annotated[StockRequestService, Depends(get_request_service)],
-    data: Optional[StockRequestRespond] = None,
+    data: StockRequestRespond | None = None,
 ):
     """Reject a stock request (owner lab only)."""
     response_message = data.response_message if data else None
     request = service.reject_request(request_id, response_message)
     if not request:
         raise HTTPException(
-            status_code=404,
-            detail="Request not found or you don't have permission"
+            status_code=404, detail="Request not found or you don't have permission"
         )
     return service._request_to_response(request)
 
@@ -126,10 +123,7 @@ async def fulfill_request(
     """Mark an approved request as fulfilled (owner lab only)."""
     request = service.fulfill_request(request_id)
     if not request:
-        raise HTTPException(
-            status_code=404,
-            detail="Request not found or not in approved status"
-        )
+        raise HTTPException(status_code=404, detail="Request not found or not in approved status")
     return service._request_to_response(request)
 
 
@@ -140,7 +134,4 @@ async def cancel_request(
 ):
     """Cancel a pending request (requester lab only)."""
     if not service.cancel_request(request_id):
-        raise HTTPException(
-            status_code=404,
-            detail="Request not found or not in pending status"
-        )
+        raise HTTPException(status_code=404, detail="Request not found or not in pending status")

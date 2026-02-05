@@ -13,15 +13,13 @@ Provides unified access to all stock centers available in FlyBase data:
 import logging
 import re
 from pathlib import Path
-from typing import Optional
 
-from app.plugins.base import StockPlugin, StockImportData
+from app.plugins.base import StockImportData, StockPlugin
 from app.plugins.flybase.data_loader import (
+    REPOSITORY_NAMES,
     FlyBaseDataLoader,
     get_flybase_url,
     get_repository_url,
-    REPOSITORY_NAMES,
-    COLLECTION_TO_REPOSITORY,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,21 +35,19 @@ class FlyBasePlugin(StockPlugin):
     name = "FlyBase Stock Database"
     source_id = "flybase"
 
-    def __init__(self, data_dir: Optional[Path] = None):
+    def __init__(self, data_dir: Path | None = None):
         """Initialize FlyBase plugin.
 
         Args:
             data_dir: Directory for storing cached data. Defaults to data/flybase.
         """
-        self._data_loader = FlyBaseDataLoader(
-            data_dir=data_dir or Path("data/flybase")
-        )
+        self._data_loader = FlyBaseDataLoader(data_dir=data_dir or Path("data/flybase"))
         # Global index: "repo:stock_num" -> data
         self._global_index: dict[str, dict] = {}
         # Repository-specific index: repo -> {stock_num -> data}
         self._by_repository: dict[str, dict[str, dict]] = {}
         self._loaded = False
-        self._data_version: Optional[str] = None
+        self._data_version: str | None = None
 
     async def _ensure_loaded(self) -> None:
         """Ensure stock data is loaded into memory."""
@@ -59,9 +55,7 @@ class FlyBasePlugin(StockPlugin):
             return
 
         logger.info("Loading FlyBase stock data...")
-        self._global_index, self._by_repository = (
-            await self._data_loader.load_all_stocks()
-        )
+        self._global_index, self._by_repository = await self._data_loader.load_all_stocks()
         self._loaded = True
         self._data_version = self._get_data_version()
 
@@ -114,7 +108,7 @@ class FlyBasePlugin(StockPlugin):
         )
 
     async def search(
-        self, query: str, limit: int = 20, repository: Optional[str] = None
+        self, query: str, limit: int = 20, repository: str | None = None
     ) -> list[StockImportData]:
         """Search for stocks across all or specific repository.
 
@@ -144,7 +138,7 @@ class FlyBasePlugin(StockPlugin):
             repos_to_search = self._by_repository
 
         # First pass: exact stock number match
-        for repo_id, repo_stocks in repos_to_search.items():
+        for _repo_id, repo_stocks in repos_to_search.items():
             if query in repo_stocks:
                 results.append(self._to_stock_import_data(repo_stocks[query]))
                 if len(results) >= limit:
@@ -186,8 +180,8 @@ class FlyBasePlugin(StockPlugin):
         return results
 
     async def get_details(
-        self, external_id: str, repository: Optional[str] = None
-    ) -> Optional[StockImportData]:
+        self, external_id: str, repository: str | None = None
+    ) -> StockImportData | None:
         """Get detailed info for a stock.
 
         Args:
@@ -207,7 +201,7 @@ class FlyBasePlugin(StockPlugin):
             return None
 
         # Otherwise, search all repositories
-        for repo_id, repo_stocks in self._by_repository.items():
+        for _repo_id, repo_stocks in self._by_repository.items():
             if external_id in repo_stocks:
                 return self._to_stock_import_data(repo_stocks[external_id])
 
@@ -231,7 +225,7 @@ class FlyBasePlugin(StockPlugin):
         return normalized
 
     async def find_by_genotype(
-        self, genotype: str, max_results: int = 5, repository: Optional[str] = None
+        self, genotype: str, max_results: int = 5, repository: str | None = None
     ) -> list[StockImportData]:
         """Find stocks with matching genotype.
 
@@ -263,8 +257,8 @@ class FlyBasePlugin(StockPlugin):
         else:
             repos_to_search = self._by_repository
 
-        for repo_id, repo_stocks in repos_to_search.items():
-            for stock_id, data in repo_stocks.items():
+        for _repo_id, repo_stocks in repos_to_search.items():
+            for _stock_id, data in repo_stocks.items():
                 stock_genotype = data.get("genotype", "")
                 if not stock_genotype:
                     continue
@@ -279,8 +273,7 @@ class FlyBasePlugin(StockPlugin):
 
                 # Partial match
                 elif len(partial_matches) < max_results and (
-                    query_normalized in stock_normalized
-                    or stock_normalized in query_normalized
+                    query_normalized in stock_normalized or stock_normalized in query_normalized
                 ):
                     partial_matches.append(self._to_stock_import_data(data))
 
@@ -308,8 +301,8 @@ class FlyBasePlugin(StockPlugin):
             int: Total number of stocks loaded.
         """
         logger.info("Forcing refresh of FlyBase stock data...")
-        self._global_index, self._by_repository = (
-            await self._data_loader.load_all_stocks(force_refresh=True)
+        self._global_index, self._by_repository = await self._data_loader.load_all_stocks(
+            force_refresh=True
         )
         self._loaded = True
         self._data_version = self._get_data_version()
@@ -351,7 +344,7 @@ class FlyBasePlugin(StockPlugin):
 
 
 # Singleton instance for the plugin
-_plugin_instance: Optional[FlyBasePlugin] = None
+_plugin_instance: FlyBasePlugin | None = None
 
 
 def get_flybase_plugin() -> FlyBasePlugin:

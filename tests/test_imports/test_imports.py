@@ -1,26 +1,26 @@
 """Tests for the enhanced import system."""
 
 import io
+
 import pytest
-from unittest.mock import patch, AsyncMock
 
 from app.imports.parsers import (
-    normalize_repository,
-    infer_origin,
-    normalize_column_name,
-    build_column_mapping,
-    normalize_rows,
-    parse_csv_raw,
-    validate_import_data,
-    generate_csv_template,
-    parse_tags,
-    REPOSITORY_ALIASES,
     AVAILABLE_FIELDS,
+    REPOSITORY_ALIASES,
     REQUIRED_FIELDS,
     REQUIRED_FIELDS_ONE_OF,
-    get_column_info,
     apply_field_generators,
     apply_user_mappings,
+    build_column_mapping,
+    generate_csv_template,
+    get_column_info,
+    infer_origin,
+    normalize_column_name,
+    normalize_repository,
+    normalize_rows,
+    parse_csv_raw,
+    parse_tags,
+    validate_import_data,
 )
 
 
@@ -260,7 +260,9 @@ class TestParseCSV:
 
     def test_parse_csv_with_various_columns(self):
         """Test CSV parsing with various column names."""
-        csv_content = b"Stock ID,Genotype,Source,BDSC#,Tray,Position\nBL-001,w1118,Bloomington,3605,Rack A,1"
+        csv_content = (
+            b"Stock ID,Genotype,Source,BDSC#,Tray,Position\nBL-001,w1118,Bloomington,3605,Rack A,1"
+        )
         file = io.BytesIO(csv_content)
 
         columns, rows = parse_csv_raw(file)
@@ -440,9 +442,17 @@ class TestAvailableAndRequiredFields:
     def test_available_fields_complete(self):
         """Test available fields include all expected fields."""
         expected = [
-            "stock_id", "genotype", "origin", "repository",
-            "repository_stock_id", "external_source", "notes",
-            "tags", "tray_name", "position", "visibility"
+            "stock_id",
+            "genotype",
+            "origin",
+            "repository",
+            "repository_stock_id",
+            "external_source",
+            "notes",
+            "tags",
+            "tray_name",
+            "position",
+            "visibility",
         ]
         for field in expected:
             assert field in AVAILABLE_FIELDS, f"Expected field '{field}' not in available fields"
@@ -753,7 +763,11 @@ class TestApplyUserMappings:
         mappings = [
             {"column_name": "stock_id", "target_field": "stock_id"},
             {"column_name": "genotype", "target_field": "genotype"},
-            {"column_name": "Some Column", "target_field": "custom", "custom_key": "my_custom_field"},
+            {
+                "column_name": "Some Column",
+                "target_field": "custom",
+                "custom_key": "my_custom_field",
+            },
         ]
 
         result, metadata_keys = apply_user_mappings(rows, mappings)
@@ -947,8 +961,8 @@ class TestConflictDetectorModule:
     async def test_rule_based_detector_coalesce(self):
         """Test RuleBasedDetector detects coalesce conflicts."""
         from app.imports.conflict_detectors import (
-            RuleBasedDetector,
             DetectionContext,
+            RuleBasedDetector,
         )
 
         detector = RuleBasedDetector()
@@ -975,8 +989,8 @@ class TestConflictDetectorModule:
     async def test_rule_based_detector_duplicate_stock(self):
         """Test RuleBasedDetector detects duplicate stock IDs."""
         from app.imports.conflict_detectors import (
-            RuleBasedDetector,
             DetectionContext,
+            RuleBasedDetector,
         )
 
         detector = RuleBasedDetector()
@@ -993,8 +1007,8 @@ class TestConflictDetectorModule:
     async def test_rule_based_detector_missing_required(self):
         """Test RuleBasedDetector detects missing required fields."""
         from app.imports.conflict_detectors import (
-            RuleBasedDetector,
             DetectionContext,
+            RuleBasedDetector,
         )
 
         detector = RuleBasedDetector()
@@ -1012,15 +1026,13 @@ class TestConflictDetectorModule:
     async def test_rule_based_detector_genotype_mismatch(self):
         """Test RuleBasedDetector detects genotype mismatch."""
         from app.imports.conflict_detectors import (
-            RuleBasedDetector,
             DetectionContext,
+            RuleBasedDetector,
         )
 
         detector = RuleBasedDetector()
         context = DetectionContext(
-            remote_metadata={
-                "12345": {"genotype": "w[1118]; P{da-GAL4.w[-]}3"}
-            }
+            remote_metadata={"12345": {"genotype": "w[1118]; P{da-GAL4.w[-]}3"}}
         )
 
         row = {
@@ -1038,8 +1050,8 @@ class TestConflictDetectorModule:
     async def test_composite_detector(self):
         """Test CompositeDetector combines multiple detectors."""
         from app.imports.conflict_detectors import (
-            get_conflict_detector,
             DetectionContext,
+            get_conflict_detector,
         )
 
         detector = get_conflict_detector()

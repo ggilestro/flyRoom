@@ -1,7 +1,7 @@
 """Pytest configuration and fixtures."""
 
 import os
-from typing import Generator
+from collections.abc import Generator
 from uuid import uuid4
 
 # Set test environment before importing app
@@ -12,20 +12,20 @@ os.environ["DEBUG"] = "false"
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.auth.utils import get_password_hash
 from app.db.models import (
     Base,
+    Organization,
     Tenant,
+    Tray,
+    TrayType,
     User,
     UserRole,
     UserStatus,
-    Organization,
-    Tray,
-    TrayType,
 )
-from app.auth.utils import get_password_hash
 
 # Use in-memory SQLite for testing
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -54,8 +54,8 @@ def db() -> Generator[Session, None, None]:
 def client(db: Session) -> Generator[TestClient, None, None]:
     """Create a test client with database override."""
     # Import here to ensure env vars are set
-    from app.main import app
     from app.dependencies import get_db
+    from app.main import app
 
     def override_get_db():
         try:
@@ -125,8 +125,8 @@ def test_admin(db: Session, test_tenant: Tenant) -> User:
 @pytest.fixture
 def authenticated_client(client: TestClient, test_user: User) -> TestClient:
     """Create an authenticated test client."""
-    from app.main import app
     from app.dependencies import get_current_user
+    from app.main import app
 
     def override_get_current_user():
         return test_user
@@ -140,8 +140,8 @@ def authenticated_client(client: TestClient, test_user: User) -> TestClient:
 @pytest.fixture
 def admin_client(client: TestClient, test_admin: User) -> TestClient:
     """Create an admin-authenticated test client."""
-    from app.main import app
     from app.dependencies import get_current_user
+    from app.main import app
 
     def override_get_current_user():
         return test_admin
@@ -170,9 +170,7 @@ def test_organization(db: Session) -> Organization:
 
 
 @pytest.fixture
-def test_tenant_with_org(
-    db: Session, test_organization: Organization
-) -> Tenant:
+def test_tenant_with_org(db: Session, test_organization: Organization) -> Tenant:
     """Create a test tenant with organization."""
     tenant = Tenant(
         id=str(uuid4()),

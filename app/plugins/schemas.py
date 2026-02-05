@@ -1,7 +1,6 @@
 """Pydantic schemas for plugins API."""
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -38,8 +37,8 @@ class ExternalStockDetails(BaseModel):
     genotype: str
     source: str
     metadata: dict = Field(default_factory=dict)
-    flybase_url: Optional[str] = None
-    source_url: Optional[str] = None
+    flybase_url: str | None = None
+    source_url: str | None = None
 
 
 class ExternalStockImportItem(BaseModel):
@@ -55,9 +54,9 @@ class ExternalStockImportItem(BaseModel):
 
     external_id: str
     source: str
-    stock_id: Optional[str] = None
-    location: Optional[str] = None
-    notes: Optional[str] = None
+    stock_id: str | None = None
+    location: str | None = None
+    notes: str | None = None
 
 
 class ImportFromExternalRequest(BaseModel):
@@ -113,7 +112,7 @@ class PluginSourceInfo(BaseModel):
 
     source_id: str
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     available: bool = True
     repositories: list[RepositoryInfo] = Field(default_factory=list)
 
@@ -132,7 +131,7 @@ class PluginStatsResponse(BaseModel):
 
     source_id: str
     total_stocks: int = 0
-    data_version: Optional[str] = None
+    data_version: str | None = None
     cache_valid: bool = False
-    last_updated: Optional[datetime] = None
+    last_updated: datetime | None = None
     repositories: list[RepositoryInfo] = Field(default_factory=list)

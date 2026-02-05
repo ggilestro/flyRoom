@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.db.models import Stock, Tag, User, Tenant
+from app.db.models import Stock, Tag, Tenant, User
 
 
 @pytest.fixture
@@ -53,9 +53,7 @@ class TestListStocks:
         assert data["items"] == []
         assert data["total"] == 0
 
-    def test_list_stocks_with_data(
-        self, authenticated_client: TestClient, test_stock: Stock
-    ):
+    def test_list_stocks_with_data(self, authenticated_client: TestClient, test_stock: Stock):
         """Test listing stocks returns existing stocks."""
         response = authenticated_client.get("/api/stocks")
 
@@ -64,9 +62,7 @@ class TestListStocks:
         assert len(data["items"]) == 1
         assert data["items"][0]["stock_id"] == "BL-1234"
 
-    def test_list_stocks_search(
-        self, authenticated_client: TestClient, test_stock: Stock
-    ):
+    def test_list_stocks_search(self, authenticated_client: TestClient, test_stock: Stock):
         """Test searching stocks by query."""
         response = authenticated_client.get("/api/stocks?query=elav")
 
@@ -74,9 +70,7 @@ class TestListStocks:
         data = response.json()
         assert len(data["items"]) == 1
 
-    def test_list_stocks_search_no_match(
-        self, authenticated_client: TestClient, test_stock: Stock
-    ):
+    def test_list_stocks_search_no_match(self, authenticated_client: TestClient, test_stock: Stock):
         """Test searching stocks with no match."""
         response = authenticated_client.get("/api/stocks?query=nonexistent")
 
@@ -105,9 +99,7 @@ class TestCreateStock:
         assert data["stock_id"] == "NEW-001"
         assert data["genotype"] == "w[*]; UAS-GFP"
 
-    def test_create_stock_duplicate_id(
-        self, authenticated_client: TestClient, test_stock: Stock
-    ):
+    def test_create_stock_duplicate_id(self, authenticated_client: TestClient, test_stock: Stock):
         """Test creating stock with duplicate ID fails."""
         response = authenticated_client.post(
             "/api/stocks",
@@ -136,9 +128,7 @@ class TestCreateStock:
 class TestGetStock:
     """Tests for getting a single stock."""
 
-    def test_get_stock_success(
-        self, authenticated_client: TestClient, test_stock: Stock
-    ):
+    def test_get_stock_success(self, authenticated_client: TestClient, test_stock: Stock):
         """Test getting a stock by ID."""
         response = authenticated_client.get(f"/api/stocks/{test_stock.id}")
 
@@ -149,9 +139,7 @@ class TestGetStock:
 
     def test_get_stock_not_found(self, authenticated_client: TestClient):
         """Test getting nonexistent stock returns 404."""
-        response = authenticated_client.get(
-            "/api/stocks/00000000-0000-0000-0000-000000000000"
-        )
+        response = authenticated_client.get("/api/stocks/00000000-0000-0000-0000-000000000000")
 
         assert response.status_code == 404
 
@@ -159,9 +147,7 @@ class TestGetStock:
 class TestUpdateStock:
     """Tests for updating stocks."""
 
-    def test_update_stock_success(
-        self, authenticated_client: TestClient, test_stock: Stock
-    ):
+    def test_update_stock_success(self, authenticated_client: TestClient, test_stock: Stock):
         """Test successful stock update."""
         response = authenticated_client.put(
             f"/api/stocks/{test_stock.id}",
@@ -194,9 +180,7 @@ class TestDeleteStock:
 
     def test_delete_stock_not_found(self, authenticated_client: TestClient):
         """Test deleting nonexistent stock returns 404."""
-        response = authenticated_client.delete(
-            "/api/stocks/00000000-0000-0000-0000-000000000000"
-        )
+        response = authenticated_client.delete("/api/stocks/00000000-0000-0000-0000-000000000000")
 
         assert response.status_code == 404
 

@@ -3,16 +3,15 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db, CurrentUser, CurrentTenantId
+from app.dependencies import CurrentTenantId, get_db
 from app.trays.schemas import (
     TrayCreate,
-    TrayUpdate,
-    TrayResponse,
-    TrayListResponse,
     TrayDetailResponse,
+    TrayListResponse,
+    TrayResponse,
+    TrayUpdate,
 )
 from app.trays.service import TrayService
 

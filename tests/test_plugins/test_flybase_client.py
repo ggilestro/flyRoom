@@ -1,13 +1,11 @@
 """Tests for the FlyBase plugin client with multi-repository support."""
 
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.plugins.flybase.client import FlyBasePlugin, get_flybase_plugin, get_bdsc_plugin
 from app.plugins.base import StockImportData
-
+from app.plugins.flybase.client import FlyBasePlugin, get_bdsc_plugin
 
 # Sample stock index for testing with multiple repositories
 SAMPLE_BY_REPOSITORY = {
@@ -92,9 +90,7 @@ def flybase_plugin(tmp_path: Path) -> FlyBasePlugin:
     plugin = FlyBasePlugin(data_dir=tmp_path)
     # Pre-populate the indices to avoid network calls
     plugin._global_index = SAMPLE_GLOBAL_INDEX.copy()
-    plugin._by_repository = {
-        repo: stocks.copy() for repo, stocks in SAMPLE_BY_REPOSITORY.items()
-    }
+    plugin._by_repository = {repo: stocks.copy() for repo, stocks in SAMPLE_BY_REPOSITORY.items()}
     plugin._loaded = True
     plugin._data_version = "FB2025_01"
     return plugin
@@ -329,9 +325,7 @@ class TestFlyBasePluginFindByGenotype:
         assert len(results) >= 1
 
     @pytest.mark.asyncio
-    async def test_find_by_genotype_specific_repository(
-        self, flybase_plugin: FlyBasePlugin
-    ):
+    async def test_find_by_genotype_specific_repository(self, flybase_plugin: FlyBasePlugin):
         """Test finding by genotype in specific repository."""
         results = await flybase_plugin.find_by_genotype("w[1118]", repository="vdrc")
 
@@ -343,9 +337,7 @@ class TestStockImportDataFormat:
     """Tests for StockImportData format."""
 
     @pytest.mark.asyncio
-    async def test_stock_import_data_is_valid_pydantic(
-        self, flybase_plugin: FlyBasePlugin
-    ):
+    async def test_stock_import_data_is_valid_pydantic(self, flybase_plugin: FlyBasePlugin):
         """Test that returned data is valid StockImportData."""
         result = await flybase_plugin.get_details("80563")
 
@@ -365,6 +357,7 @@ class TestBackwardCompatibility:
         """Test that get_bdsc_plugin returns FlyBasePlugin."""
         # Reset singleton for testing
         import app.plugins.flybase.client as client_module
+
         client_module._plugin_instance = None
 
         plugin = get_bdsc_plugin()

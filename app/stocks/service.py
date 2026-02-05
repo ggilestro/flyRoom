@@ -1,24 +1,27 @@
 """Stock service layer."""
 
-from typing import Optional
-from uuid import UUID
-
-from sqlalchemy import or_, and_, func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.models import Stock, Tag, User, Tenant, Tray, StockVisibility, StockOrigin, StockRepository
+from app.db.models import (
+    Stock,
+    StockVisibility,
+    Tag,
+    Tenant,
+    Tray,
+)
 from app.stocks.schemas import (
+    OwnerInfo,
     StockCreate,
-    StockUpdate,
-    StockResponse,
     StockListResponse,
-    StockSearchParams,
+    StockResponse,
     StockScope,
+    StockSearchParams,
+    StockUpdate,
     TagCreate,
     TagResponse,
-    TrayInfo,
-    OwnerInfo,
     TenantInfo,
+    TrayInfo,
 )
 
 
@@ -38,14 +41,10 @@ class StockService:
         self._org_id = None
 
     @property
-    def organization_id(self) -> Optional[str]:
+    def organization_id(self) -> str | None:
         """Get current tenant's organization ID (cached)."""
         if self._org_id is None:
-            tenant = (
-                self.db.query(Tenant)
-                .filter(Tenant.id == self.tenant_id)
-                .first()
-            )
+            tenant = self.db.query(Tenant).filter(Tenant.id == self.tenant_id).first()
             self._org_id = tenant.organization_id if tenant else ""
         return self._org_id if self._org_id else None
 
@@ -130,7 +129,7 @@ class StockService:
                 and_(
                     Stock.tenant_id.in_(org_tenant_ids),
                     Stock.visibility.in_([StockVisibility.ORGANIZATION, StockVisibility.PUBLIC]),
-                    Stock.hide_from_org == False,
+                    not Stock.hide_from_org,
                 ),
             )
         else:  # PUBLIC
@@ -204,10 +203,7 @@ class StockService:
         # Pagination
         offset = (params.page - 1) * params.page_size
         stocks = (
-            query.order_by(Stock.modified_at.desc())
-            .offset(offset)
-            .limit(params.page_size)
-            .all()
+            query.order_by(Stock.modified_at.desc()).offset(offset).limit(params.page_size).all()
         )
 
         pages = (total + params.page_size - 1) // params.page_size
@@ -223,7 +219,7 @@ class StockService:
             pages=pages,
         )
 
-    def get_stock(self, stock_id: str, allow_cross_tenant: bool = False) -> Optional[Stock]:
+    def get_stock(self, stock_id: str, allow_cross_tenant: bool = False) -> Stock | None:
         """Get a stock by ID.
 
         Args:
@@ -259,7 +255,7 @@ class StockService:
 
         return query.first()
 
-    def get_stock_by_stock_id(self, stock_id: str) -> Optional[Stock]:
+    def get_stock_by_stock_id(self, stock_id: str) -> Stock | None:
         """Get a stock by its human-readable stock_id.
 
         Args:
@@ -340,7 +336,7 @@ class StockService:
         self.db.refresh(stock)
         return stock
 
-    def update_stock(self, stock_id: str, data: StockUpdate, user_id: str) -> Optional[Stock]:
+    def update_stock(self, stock_id: str, data: StockUpdate, user_id: str) -> Stock | None:
         """Update a stock.
 
         Args:
@@ -468,12 +464,7 @@ class StockService:
         Returns:
             list[TagResponse]: List of tags.
         """
-        tags = (
-            self.db.query(Tag)
-            .filter(Tag.tenant_id == self.tenant_id)
-            .order_by(Tag.name)
-            .all()
-        )
+        tags = self.db.query(Tag).filter(Tag.tenant_id == self.tenant_id).order_by(Tag.name).all()
         return [TagResponse(id=t.id, name=t.name, color=t.color) for t in tags]
 
     def create_tag(self, data: TagCreate) -> Tag:
@@ -515,11 +506,7 @@ class StockService:
         Returns:
             bool: True if deleted, False if not found.
         """
-        tag = (
-            self.db.query(Tag)
-            .filter(Tag.id == tag_id, Tag.tenant_id == self.tenant_id)
-            .first()
-        )
+        tag = self.db.query(Tag).filter(Tag.id == tag_id, Tag.tenant_id == self.tenant_id).first()
         if not tag:
             return False
 
@@ -535,14 +522,12 @@ class StockService:
         """
         total_stocks = (
             self.db.query(func.count(Stock.id))
-            .filter(Stock.tenant_id == self.tenant_id, Stock.is_active == True)
+            .filter(Stock.tenant_id == self.tenant_id, Stock.is_active)
             .scalar()
         )
 
         total_tags = (
-            self.db.query(func.count(Tag.id))
-            .filter(Tag.tenant_id == self.tenant_id)
-            .scalar()
+            self.db.query(func.count(Tag.id)).filter(Tag.tenant_id == self.tenant_id).scalar()
         )
 
         return {

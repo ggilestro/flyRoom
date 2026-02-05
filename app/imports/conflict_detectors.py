@@ -9,11 +9,10 @@ Example usage:
     conflicts = await detector.detect_all(rows, context)
 """
 
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Protocol, Optional
+from typing import Protocol
 
-from app.imports.schemas import ConflictType, RowConflict, ConflictingRow
+from app.imports.schemas import ConflictingRow, ConflictType, RowConflict
 
 
 @dataclass
@@ -104,28 +103,20 @@ class RuleBasedDetector:
         conflicts.extend(self._check_coalesce_conflicts(row, row_index))
 
         # Check for genotype mismatch with remote data
-        conflicts.extend(
-            self._check_genotype_mismatch(row, row_index, context)
-        )
+        conflicts.extend(self._check_genotype_mismatch(row, row_index, context))
 
         # Check for duplicate stock IDs
-        conflicts.extend(
-            self._check_duplicate_stock(row, row_index, context)
-        )
+        conflicts.extend(self._check_duplicate_stock(row, row_index, context))
 
         # Check for missing required fields
         conflicts.extend(self._check_missing_required(row, row_index))
 
         # Check for potential repository matches (non-repo stocks)
-        conflicts.extend(
-            self._check_repository_matches(row, row_index, context)
-        )
+        conflicts.extend(self._check_repository_matches(row, row_index, context))
 
         return conflicts
 
-    def _check_coalesce_conflicts(
-        self, row: dict, row_index: int
-    ) -> list[RowConflict]:
+    def _check_coalesce_conflicts(self, row: dict, row_index: int) -> list[RowConflict]:
         """Check for coalesce conflicts (multiple values for same field)."""
         conflicts = []
 
@@ -140,8 +131,7 @@ class RuleBasedDetector:
                     conflict_type=ConflictType.COALESCE_CONFLICT,
                     field=field_name,
                     values=columns,
-                    message=f"Multiple values found for '{field_name}': "
-                    f"choose which to use",
+                    message=f"Multiple values found for '{field_name}': " f"choose which to use",
                     detector="rule",
                 )
             )
@@ -165,9 +155,7 @@ class RuleBasedDetector:
         if not remote_data:
             return conflicts
 
-        remote_genotype = remote_data.get("genotype") or remote_data.get(
-            "FB_genotype"
-        )
+        remote_genotype = remote_data.get("genotype") or remote_data.get("FB_genotype")
         if not remote_genotype:
             return conflicts
 
@@ -182,8 +170,7 @@ class RuleBasedDetector:
                     field="genotype",
                     values={"local": local_genotype},
                     remote_value=remote_genotype,
-                    message=f"Genotype differs from repository data for "
-                    f"stock {repo_stock_id}",
+                    message=f"Genotype differs from repository data for " f"stock {repo_stock_id}",
                     detector="rule",
                 )
             )
@@ -213,9 +200,7 @@ class RuleBasedDetector:
 
         return conflicts
 
-    def _check_missing_required(
-        self, row: dict, row_index: int
-    ) -> list[RowConflict]:
+    def _check_missing_required(self, row: dict, row_index: int) -> list[RowConflict]:
         """Check for missing required fields."""
         conflicts = []
 
@@ -292,7 +277,7 @@ class LLMDetector:
     Currently a placeholder that returns no conflicts.
     """
 
-    def __init__(self, client: Optional[object] = None):
+    def __init__(self, client: object | None = None):
         """Initialize LLM detector.
 
         Args:

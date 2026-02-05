@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db, CurrentUser, CurrentTenantId
-from app.db.models import Tag, StockTag
-from app.tags.schemas import TagCreate, TagUpdate, TagResponse, TagWithCount
+from app.db.models import StockTag, Tag
+from app.dependencies import CurrentTenantId, get_db
+from app.tags.schemas import TagCreate, TagResponse, TagUpdate, TagWithCount
 
 router = APIRouter()
 
@@ -163,10 +163,14 @@ async def update_tag(
     Raises:
         HTTPException: If tag not found or name conflict.
     """
-    tag = db.query(Tag).filter(
-        Tag.id == tag_id,
-        Tag.tenant_id == tenant_id,
-    ).first()
+    tag = (
+        db.query(Tag)
+        .filter(
+            Tag.id == tag_id,
+            Tag.tenant_id == tenant_id,
+        )
+        .first()
+    )
 
     if not tag:
         raise HTTPException(
@@ -219,10 +223,14 @@ async def delete_tag(
     Raises:
         HTTPException: If tag not found.
     """
-    tag = db.query(Tag).filter(
-        Tag.id == tag_id,
-        Tag.tenant_id == tenant_id,
-    ).first()
+    tag = (
+        db.query(Tag)
+        .filter(
+            Tag.id == tag_id,
+            Tag.tenant_id == tenant_id,
+        )
+        .first()
+    )
 
     if not tag:
         raise HTTPException(
@@ -264,14 +272,22 @@ async def merge_tags(
             detail="Cannot merge a tag into itself",
         )
 
-    source = db.query(Tag).filter(
-        Tag.id == tag_id,
-        Tag.tenant_id == tenant_id,
-    ).first()
-    target = db.query(Tag).filter(
-        Tag.id == target_id,
-        Tag.tenant_id == tenant_id,
-    ).first()
+    source = (
+        db.query(Tag)
+        .filter(
+            Tag.id == tag_id,
+            Tag.tenant_id == tenant_id,
+        )
+        .first()
+    )
+    target = (
+        db.query(Tag)
+        .filter(
+            Tag.id == target_id,
+            Tag.tenant_id == tenant_id,
+        )
+        .first()
+    )
 
     if not source:
         raise HTTPException(
@@ -285,12 +301,12 @@ async def merge_tags(
         )
 
     # Get stock IDs that have the source tag but not the target tag
-    source_stock_ids = {st.stock_id for st in db.query(StockTag).filter(
-        StockTag.tag_id == tag_id
-    ).all()}
-    target_stock_ids = {st.stock_id for st in db.query(StockTag).filter(
-        StockTag.tag_id == target_id
-    ).all()}
+    source_stock_ids = {
+        st.stock_id for st in db.query(StockTag).filter(StockTag.tag_id == tag_id).all()
+    }
+    target_stock_ids = {
+        st.stock_id for st in db.query(StockTag).filter(StockTag.tag_id == target_id).all()
+    }
 
     # Add target tag to stocks that only have source tag
     for stock_id in source_stock_ids - target_stock_ids:

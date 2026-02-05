@@ -5,57 +5,46 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Form
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db, CurrentUser, CurrentTenantId
-from app.db.models import Stock, Tag, Tray, TrayType, StockOrigin, StockRepository
-from app.imports.parsers import (
-    parse_csv,
-    parse_csv_raw,
-    parse_excel,
-    parse_excel_raw,
-    validate_import_data,
-    generate_csv_template,
-    build_column_mapping,
-    normalize_rows,
-    normalize_repository,
-    parse_tags,
-    ImportResult,
-    REPOSITORY_ALIASES,
-    AVAILABLE_FIELDS,
-    REQUIRED_FIELDS,
-    REQUIRED_FIELDS_ONE_OF,
-    get_column_info,
-    apply_field_generators,
-    apply_user_mappings,
-    validate_required_fields,
-    generate_stock_id,
-)
-from app.imports.schemas import (
-    ImportPreview,
-    ImportStats,
-    ImportConfig,
-    ImportExecuteRequest,
-    ImportExecuteResult,
-    ColumnInfo,
-    UserColumnMapping,
-    FieldGenerator,
-    ImportPreviewV2,
-    ImportExecuteV2Request,
-    TrayResolution,
-    ConflictType,
-    RowConflict,
-    ConflictingRow,
-    ConflictResolution,
-    ImportPhase1Result,
-    ImportPhase2Request,
-)
+from app.db.models import Stock, StockOrigin, StockRepository, Tag, Tray, TrayType
+from app.dependencies import CurrentTenantId, CurrentUser, get_db
 from app.imports.conflict_detectors import (
     DetectionContext,
     RepositoryMatch,
     get_conflict_detector,
+)
+from app.imports.parsers import (
+    AVAILABLE_FIELDS,
+    REQUIRED_FIELDS_ONE_OF,
+    ImportResult,
+    apply_field_generators,
+    apply_user_mappings,
+    build_column_mapping,
+    generate_csv_template,
+    generate_stock_id,
+    get_column_info,
+    normalize_repository,
+    normalize_rows,
+    parse_csv,
+    parse_csv_raw,
+    parse_excel,
+    parse_excel_raw,
+    parse_tags,
+    validate_import_data,
+    validate_required_fields,
+)
+from app.imports.schemas import (
+    ColumnInfo,
+    ImportConfig,
+    ImportExecuteResult,
+    ImportPhase1Result,
+    ImportPreview,
+    ImportPreviewV2,
+    ImportStats,
+    TrayResolution,
 )
 
 logger = logging.getLogger(__name__)
@@ -131,10 +120,7 @@ def _delete_import_session(session_id: str) -> None:
 def _cleanup_expired_sessions() -> None:
     """Remove expired sessions."""
     now = datetime.utcnow()
-    expired = [
-        sid for sid, data in _import_sessions.items()
-        if now > data["expires_at"]
-    ]
+    expired = [sid for sid, data in _import_sessions.items() if now > data["expires_at"]]
     for sid in expired:
         del _import_sessions[sid]
 
@@ -201,9 +187,7 @@ def _compute_stats(rows: list[dict], tenant_id: str, db: Session) -> ImportStats
     # Check which trays exist
     if tray_names:
         existing_trays = (
-            db.query(Tray.name)
-            .filter(Tray.tenant_id == tenant_id, Tray.name.in_(tray_names))
-            .all()
+            db.query(Tray.name).filter(Tray.tenant_id == tenant_id, Tray.name.in_(tray_names)).all()
         )
         existing_names = {t.name for t in existing_trays}
         stats.existing_trays = sorted(existing_names)
@@ -288,7 +272,9 @@ async def preview_import(
     if "genotype" not in column_map.values():
         warnings.append("No 'genotype' column detected - required for import")
     if stats.trays_to_create:
-        warnings.append(f"Will auto-create {len(stats.trays_to_create)} new tray(s): {', '.join(stats.trays_to_create)}")
+        warnings.append(
+            f"Will auto-create {len(stats.trays_to_create)} new tray(s): {', '.join(stats.trays_to_create)}"
+        )
 
     # Can import if we have valid rows and required columns
     can_import = (
@@ -457,9 +443,7 @@ def _get_or_create_tray(
 
     # Check database for existing tray
     existing_tray = (
-        db.query(Tray)
-        .filter(Tray.tenant_id == tenant_id, Tray.name == tray_name)
-        .first()
+        db.query(Tray).filter(Tray.tenant_id == tenant_id, Tray.name == tray_name).first()
     )
 
     if existing_tray:
@@ -470,9 +454,7 @@ def _get_or_create_tray(
                 return None
             elif resolution.action == "create_new" and resolution.new_name:
                 # Create a new tray with the specified name instead
-                return _create_new_tray(
-                    db, tenant_id, resolution.new_name, config, created_trays
-                )
+                return _create_new_tray(db, tenant_id, resolution.new_name, config, created_trays)
             # Default: use_existing - fall through to return existing
         created_trays[tray_name] = existing_tray
         return existing_tray
@@ -630,8 +612,7 @@ async def execute_import(
 
     # Get existing tags for the tenant
     existing_tags = {
-        t.name.lower(): t
-        for t in db.query(Tag).filter(Tag.tenant_id == str(tenant_id)).all()
+        t.name.lower(): t for t in db.query(Tag).filter(Tag.tenant_id == str(tenant_id)).all()
     }
 
     # Tray cache
@@ -664,7 +645,9 @@ async def execute_import(
         # Try to fetch metadata - if successful, we know the repository
         external_metadata = None
         origin = _parse_origin(row.get("origin"))
-        repository = _parse_repository(row.get("repository")) if origin == StockOrigin.REPOSITORY else None
+        repository = (
+            _parse_repository(row.get("repository")) if origin == StockOrigin.REPOSITORY else None
+        )
 
         if config.fetch_metadata and row.get("repository_stock_id"):
             # Try to fetch from any repository
@@ -768,9 +751,7 @@ async def preview_import_v2(
     column_info = get_column_info(columns, raw_rows)
 
     # Check if at least one of the required fields is auto-detected
-    auto_detected_fields = {
-        c["auto_detected"] for c in column_info if c["auto_detected"]
-    }
+    auto_detected_fields = {c["auto_detected"] for c in column_info if c["auto_detected"]}
     has_required = any(f in auto_detected_fields for f in REQUIRED_FIELDS_ONE_OF)
 
     # Build warnings
@@ -783,9 +764,7 @@ async def preview_import_v2(
 
     # Note about stock_id being optional
     if "stock_id" not in auto_detected_fields:
-        warnings.append(
-            "No stock_id column detected - IDs will be auto-generated if not mapped."
-        )
+        warnings.append("No stock_id column detected - IDs will be auto-generated if not mapped.")
 
     # can_import is True if we have rows (validation happens at import time)
     can_import = len(raw_rows) > 0
@@ -853,9 +832,7 @@ async def validate_mappings(
     rows, metadata_keys = apply_user_mappings(raw_rows, column_mappings)
 
     # Check if tray_name is mapped
-    tray_column_mapped = any(
-        m.get("target_field") == "tray_name" for m in column_mappings
-    )
+    tray_column_mapped = any(m.get("target_field") == "tray_name" for m in column_mappings)
 
     # Compute statistics including tray info
     stats = _compute_stats(rows, str(tenant_id), db)
@@ -947,7 +924,7 @@ async def execute_import_v2(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Each row must have either a repository stock ID or a genotype. "
-                       "Please map at least one of these fields.",
+                "Please map at least one of these fields.",
             )
 
     # Get existing stock IDs
@@ -968,8 +945,7 @@ async def execute_import_v2(
 
     # Get existing tags for the tenant
     existing_tags = {
-        t.name.lower(): t
-        for t in db.query(Tag).filter(Tag.tenant_id == str(tenant_id)).all()
+        t.name.lower(): t for t in db.query(Tag).filter(Tag.tenant_id == str(tenant_id)).all()
     }
 
     # Tray cache
@@ -1002,9 +978,7 @@ async def execute_import_v2(
         external_metadata = None
         origin = _parse_origin(row.get("origin"))
         repository = (
-            _parse_repository(row.get("repository"))
-            if origin == StockOrigin.REPOSITORY
-            else None
+            _parse_repository(row.get("repository")) if origin == StockOrigin.REPOSITORY else None
         )
 
         if config.fetch_metadata and row.get("repository_stock_id"):
@@ -1028,9 +1002,7 @@ async def execute_import_v2(
         tray_name = row.get("tray_name")
 
         if tray_name:
-            tray = _get_or_create_tray(
-                db, str(tenant_id), tray_name, config, created_trays
-            )
+            tray = _get_or_create_tray(db, str(tenant_id), tray_name, config, created_trays)
             if tray:
                 tray_id = tray.id
 
@@ -1131,9 +1103,7 @@ async def execute_import_v2_phase1(
     tray_resolutions_lookup: dict[str, TrayResolution] = {
         tr["tray_name"]: TrayResolution(**tr) for tr in tray_resolutions_data
     }
-    tray_column_mapped = any(
-        m.get("target_field") == "tray_name" for m in column_mappings
-    )
+    tray_column_mapped = any(m.get("target_field") == "tray_name" for m in column_mappings)
 
     # Parse file
     columns, raw_rows = _parse_file_raw(file)
@@ -1200,10 +1170,7 @@ async def execute_import_v2_phase1(
 
     # Separate clean rows from conflicting rows
     conflicting_indices = {cr.row_index for cr in conflicting_rows_data}
-    clean_rows = [
-        (i, row) for i, row in enumerate(rows, start=1)
-        if i not in conflicting_indices
-    ]
+    clean_rows = [(i, row) for i, row in enumerate(rows, start=1) if i not in conflicting_indices]
 
     # Auto-generate stock IDs for clean rows if missing
     for idx, row in clean_rows:
@@ -1229,8 +1196,7 @@ async def execute_import_v2_phase1(
 
     # Get existing tags for the tenant
     existing_tags = {
-        t.name.lower(): t
-        for t in db.query(Tag).filter(Tag.tenant_id == str(tenant_id)).all()
+        t.name.lower(): t for t in db.query(Tag).filter(Tag.tenant_id == str(tenant_id)).all()
     }
 
     for row in valid_rows:
@@ -1276,7 +1242,11 @@ async def execute_import_v2_phase1(
 
         if tray_name and tray_column_mapped:
             tray = _get_or_create_tray(
-                db, str(tenant_id), tray_name, config, created_trays,
+                db,
+                str(tenant_id),
+                tray_name,
+                config,
+                created_trays,
                 tray_resolutions=tray_resolutions_lookup,
                 tray_column_mapped=tray_column_mapped,
             )
@@ -1406,9 +1376,7 @@ async def execute_import_v2_phase2(
     column_mappings = session.get("column_mappings", [])
 
     # Check if tray column was explicitly mapped
-    tray_column_mapped = any(
-        m.get("target_field") == "tray_name" for m in column_mappings
-    )
+    tray_column_mapped = any(m.get("target_field") == "tray_name" for m in column_mappings)
 
     # Extract tray resolutions from the request (if any)
     tray_resolutions_data = request_data.get("tray_resolutions", [])
@@ -1425,8 +1393,7 @@ async def execute_import_v2_phase2(
 
     # Get existing tags
     existing_tags = {
-        t.name.lower(): t
-        for t in db.query(Tag).filter(Tag.tenant_id == str(tenant_id)).all()
+        t.name.lower(): t for t in db.query(Tag).filter(Tag.tenant_id == str(tenant_id)).all()
     }
 
     # Tray cache
@@ -1486,10 +1453,12 @@ async def execute_import_v2_phase2(
 
         # Check for duplicate after resolution
         if row["stock_id"] in existing_stock_ids:
-            errors.append({
-                "row": row_index,
-                "errors": [f"Stock ID '{row['stock_id']}' already exists"],
-            })
+            errors.append(
+                {
+                    "row": row_index,
+                    "errors": [f"Stock ID '{row['stock_id']}' already exists"],
+                }
+            )
             continue
 
         # Validate required fields
@@ -1515,9 +1484,7 @@ async def execute_import_v2_phase2(
         # Parse origin and repository
         origin = _parse_origin(row.get("origin"))
         repository = (
-            _parse_repository(row.get("repository"))
-            if origin == StockOrigin.REPOSITORY
-            else None
+            _parse_repository(row.get("repository")) if origin == StockOrigin.REPOSITORY else None
         )
 
         # Handle tray (only if tray_name column was explicitly mapped)
@@ -1527,7 +1494,11 @@ async def execute_import_v2_phase2(
 
         if tray_name and tray_column_mapped:
             tray = _get_or_create_tray(
-                db, str(tenant_id), tray_name, config, created_trays,
+                db,
+                str(tenant_id),
+                tray_name,
+                config,
+                created_trays,
                 tray_resolutions=tray_resolutions_lookup,
                 tray_column_mapped=tray_column_mapped,
             )

@@ -1,10 +1,9 @@
 """Tests for authentication module."""
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.db.models import User, Tenant, UserStatus
+from app.db.models import Tenant, User, UserStatus
 
 
 class TestRegister:
@@ -78,7 +77,9 @@ class TestRegister:
         tenants = db.query(Tenant).filter(Tenant.name == "MIT").all()
         assert len(tenants) == 2
 
-    def test_register_member_pending_by_pi_name(self, client: TestClient, db: Session, test_admin: User):
+    def test_register_member_pending_by_pi_name(
+        self, client: TestClient, db: Session, test_admin: User
+    ):
         """Test member registration by PI name without invitation is pending."""
         response = client.post(
             "/api/auth/register",
@@ -104,7 +105,9 @@ class TestRegister:
         assert user is not None
         assert user.status == UserStatus.PENDING
 
-    def test_register_member_pending_by_pi_email(self, client: TestClient, db: Session, test_admin: User):
+    def test_register_member_pending_by_pi_email(
+        self, client: TestClient, db: Session, test_admin: User
+    ):
         """Test member registration by PI email without invitation is pending."""
         response = client.post(
             "/api/auth/register",
@@ -122,7 +125,9 @@ class TestRegister:
         data = response.json()
         assert data["pending_approval"] is True
 
-    def test_register_member_with_invitation(self, client: TestClient, db: Session, test_tenant: Tenant):
+    def test_register_member_with_invitation(
+        self, client: TestClient, db: Session, test_tenant: Tenant
+    ):
         """Test member registration with invitation is auto-approved."""
         # Set invitation token on tenant
         test_tenant.invitation_token = "test-invite-token-123"
@@ -230,8 +235,9 @@ class TestLogin:
 
     def test_login_pending_user(self, client: TestClient, db: Session, test_tenant: Tenant):
         """Test login fails for pending user."""
-        from app.auth.utils import get_password_hash
         from uuid import uuid4
+
+        from app.auth.utils import get_password_hash
 
         # Create a pending user
         pending_user = User(

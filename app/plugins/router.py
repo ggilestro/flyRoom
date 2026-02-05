@@ -2,19 +2,16 @@
 
 import logging
 from datetime import datetime
-from typing import Annotated, Optional
-from uuid import UUID
+from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.plugins.base import StockImportData
-from app.plugins.flybase.client import get_flybase_plugin, FlyBasePlugin
+from app.plugins.flybase.client import FlyBasePlugin, get_flybase_plugin
 from app.plugins.schemas import (
-    ExternalStockResult,
     ExternalStockDetails,
-    ExternalStockImportItem,
+    ExternalStockResult,
     ImportFromExternalRequest,
     ImportFromExternalResult,
     PluginSourceInfo,
@@ -41,6 +38,7 @@ SOURCE_ALIASES = {
 def _get_db():
     """Get database session (late import to avoid circular dependency)."""
     from app.db.database import SessionLocal
+
     db = SessionLocal()
     try:
         yield db
@@ -52,7 +50,7 @@ async def _get_current_user(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
     db: Session = Depends(_get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Get current user (late import to avoid circular dependency)."""
     from app.auth.utils import decode_access_token
@@ -101,7 +99,7 @@ async def _get_current_user(
     return user
 
 
-def _resolve_source(source: str) -> tuple[str, Optional[str]]:
+def _resolve_source(source: str) -> tuple[str, str | None]:
     """Resolve source ID and optional repository.
 
     Args:
@@ -117,7 +115,7 @@ def _resolve_source(source: str) -> tuple[str, Optional[str]]:
     return source, None
 
 
-def get_plugin(source: str) -> tuple[FlyBasePlugin, Optional[str]]:
+def get_plugin(source: str) -> tuple[FlyBasePlugin, str | None]:
     """Get plugin instance by source ID.
 
     Args:
@@ -211,10 +209,7 @@ async def list_repositories(source: str) -> list[RepositoryInfo]:
     plugin, _ = get_plugin(source)
     repos = await plugin.list_repositories()
 
-    return [
-        RepositoryInfo(id=r["id"], name=r["name"], count=r["count"])
-        for r in repos
-    ]
+    return [RepositoryInfo(id=r["id"], name=r["name"], count=r["count"]) for r in repos]
 
 
 @router.post("/sources/{source}/refresh")
@@ -240,7 +235,7 @@ async def refresh_source_data(
 async def search_external(
     query: str = Query(..., min_length=1, description="Search query"),
     source: str = Query("flybase", description="Source to search"),
-    repository: Optional[str] = Query(None, description="Repository to filter (e.g., bdsc, vdrc)"),
+    repository: str | None = Query(None, description="Repository to filter (e.g., bdsc, vdrc)"),
     limit: int = Query(20, ge=1, le=100, description="Maximum results"),
 ) -> list[ExternalStockResult]:
     """Search for stocks in external source.
@@ -282,7 +277,7 @@ async def search_external(
 async def get_external_details(
     source: str,
     external_id: str,
-    repository: Optional[str] = Query(None, description="Repository hint"),
+    repository: str | None = Query(None, description="Repository hint"),
 ) -> ExternalStockDetails:
     """Get detailed info for an external stock.
 
@@ -342,7 +337,7 @@ async def import_from_external(
     Returns:
         ImportFromExternalResult: Import results.
     """
-    from app.db.models import Stock, ExternalReference
+    from app.db.models import ExternalReference, Stock
 
     result = ImportFromExternalResult()
     tenant_id = current_user.tenant_id

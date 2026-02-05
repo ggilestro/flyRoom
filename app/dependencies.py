@@ -1,15 +1,16 @@
 """Dependency injection for FastAPI."""
 
-from typing import Annotated, Generator, Optional
+from collections.abc import Generator
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import Cookie, Depends, HTTPException, Request, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.auth.utils import decode_access_token
 from app.db.database import SessionLocal
 from app.db.models import User, UserRole, UserStatus
-from app.auth.utils import decode_access_token
 
 security = HTTPBearer(auto_error=False)
 
@@ -31,7 +32,7 @@ async def get_current_user(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
     db: Annotated[Session, Depends(get_db)],
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ) -> User:
     """Get the current authenticated user from JWT token or cookie.
 
@@ -71,11 +72,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = (
-        db.query(User)
-        .filter(User.id == token_data.user_id)
-        .first()
-    )
+    user = db.query(User).filter(User.id == token_data.user_id).first()
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -104,7 +101,7 @@ async def get_current_user_optional(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
     db: Annotated[Session, Depends(get_db)],
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ) -> User | None:
     """Get the current user if authenticated, None otherwise.
 

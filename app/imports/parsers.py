@@ -43,33 +43,62 @@ class ImportResult(BaseModel):
 # Maps canonical enum value to list of aliases
 REPOSITORY_ALIASES: dict[str, list[str]] = {
     "bdsc": [
-        "bdsc", "bloomington", "bl", "indiana", "bloomington drosophila",
-        "bloomington drosophila stock center", "bloomington stock center",
-        "bdsc#", "bl#",
+        "bdsc",
+        "bloomington",
+        "bl",
+        "indiana",
+        "bloomington drosophila",
+        "bloomington drosophila stock center",
+        "bloomington stock center",
+        "bdsc#",
+        "bl#",
     ],
     "vdrc": [
-        "vdrc", "vienna", "vienna drosophila", "vienna drosophila resource center",
+        "vdrc",
+        "vienna",
+        "vienna drosophila",
+        "vienna drosophila resource center",
         "vienna drc",
     ],
     "kyoto": [
-        "kyoto", "dgrc-kyoto", "kyoto dgrc", "kyoto stock center",
+        "kyoto",
+        "dgrc-kyoto",
+        "kyoto dgrc",
+        "kyoto stock center",
         "drosophila genetic resource center kyoto",
     ],
     "nig": [
-        "nig", "nig-fly", "national institute of genetics", "nig fly",
+        "nig",
+        "nig-fly",
+        "national institute of genetics",
+        "nig fly",
     ],
     "dgrc": [
-        "dgrc", "indiana dgrc", "drosophila genomics", "drosophila genomics resource center",
+        "dgrc",
+        "indiana dgrc",
+        "drosophila genomics",
+        "drosophila genomics resource center",
     ],
     "flyorf": [
-        "flyorf", "zurich", "orf", "fly orf", "zurich orf", "flyorf zurich",
+        "flyorf",
+        "zurich",
+        "orf",
+        "fly orf",
+        "zurich orf",
+        "flyorf zurich",
     ],
     "trip": [
-        "trip", "harvard rnai", "transgenic rnai", "transgenic rnai project",
-        "trc", "trip harvard",
+        "trip",
+        "harvard rnai",
+        "transgenic rnai",
+        "transgenic rnai project",
+        "trc",
+        "trip harvard",
     ],
     "exelixis": [
-        "exelixis", "harvard exelixis", "exelixis collection",
+        "exelixis",
+        "harvard exelixis",
+        "exelixis collection",
     ],
 }
 
@@ -77,44 +106,114 @@ REPOSITORY_ALIASES: dict[str, list[str]] = {
 # Expected column mappings (case-insensitive)
 COLUMN_MAPPINGS = {
     "stock_id": [
-        "stock_id", "stockid", "stock id", "id", "stock", "stock#", "stock #",
-        "local_id", "local id", "lab_id", "lab id", "internal_id",
+        "stock_id",
+        "stockid",
+        "stock id",
+        "id",
+        "stock",
+        "stock#",
+        "stock #",
+        "local_id",
+        "local id",
+        "lab_id",
+        "lab id",
+        "internal_id",
     ],
     "genotype": [
-        "genotype", "geno", "genotypes", "full genotype", "full_genotype",
+        "genotype",
+        "geno",
+        "genotypes",
+        "full genotype",
+        "full_genotype",
     ],
     "origin": [
-        "origin", "type", "source_type", "stock_type",
+        "origin",
+        "type",
+        "source_type",
+        "stock_type",
     ],
     "repository": [
-        "repository", "repo", "stock_center", "source", "center", "stock center",
-        "from", "obtained_from", "obtained from",
+        "repository",
+        "repo",
+        "stock_center",
+        "source",
+        "center",
+        "stock center",
+        "from",
+        "obtained_from",
+        "obtained from",
     ],
     "repository_stock_id": [
-        "repository_stock_id", "repo_id", "external_id", "bdsc_id", "vdrc_id",
-        "center_id", "stock_center_id", "source_id", "catalog", "catalog_number",
-        "catalog#", "bdsc#", "vdrc#", "bl#", "stock number",
-        "bdsc", "vdrc", "bl",  # Column named just "BDSC" or "VDRC"
+        "repository_stock_id",
+        "repo_id",
+        "external_id",
+        "bdsc_id",
+        "vdrc_id",
+        "center_id",
+        "stock_center_id",
+        "source_id",
+        "catalog",
+        "catalog_number",
+        "catalog#",
+        "bdsc#",
+        "vdrc#",
+        "bl#",
+        "stock number",
+        "bdsc",
+        "vdrc",
+        "bl",  # Column named just "BDSC" or "VDRC"
     ],
     "external_source": [
-        "external_source", "lab", "researcher", "from_lab", "lab_name",
-        "received_from", "donor", "donor_lab",
+        "external_source",
+        "lab",
+        "researcher",
+        "from_lab",
+        "lab_name",
+        "received_from",
+        "donor",
+        "donor_lab",
     ],
     "notes": [
-        "notes", "note", "comments", "comment", "description", "remarks",
+        "notes",
+        "note",
+        "comments",
+        "comment",
+        "description",
+        "remarks",
     ],
     "tags": [
-        "tags", "tag", "labels", "categories", "keywords",
+        "tags",
+        "tag",
+        "labels",
+        "categories",
+        "keywords",
     ],
     "tray_name": [
-        "tray", "tray_name", "rack", "shelf", "location", "box", "container",
-        "storage", "freezer",
+        "tray",
+        "tray_name",
+        "rack",
+        "shelf",
+        "location",
+        "box",
+        "container",
+        "storage",
+        "freezer",
     ],
     "position": [
-        "position", "pos", "slot", "well", "spot", "tray_position", "tray_pos",
+        "position",
+        "pos",
+        "slot",
+        "well",
+        "spot",
+        "tray_position",
+        "tray_pos",
     ],
     "visibility": [
-        "visibility", "visible", "sharing", "share", "access",
+        "visibility",
+        "visible",
+        "sharing",
+        "share",
+        "access",
     ],
 }
 
@@ -423,11 +522,13 @@ def validate_import_data(
                     row_errors.append(f"{error['loc'][0]}: {error['msg']}")
 
         if row_errors:
-            errors.append({
-                "row": i,
-                "data": row,
-                "errors": row_errors,
-            })
+            errors.append(
+                {
+                    "row": i,
+                    "data": row,
+                    "errors": row_errors,
+                }
+            )
         else:
             valid_rows.append(row)
 
@@ -452,33 +553,77 @@ def generate_csv_template(template_type: str = "basic") -> str:
     if template_type == "basic":
         headers = ["stock_id", "genotype", "notes", "tags"]
         example_rows = [
-            ["LAB-001", "w[1118]; P{GAL4-elav.L}3", "Elav-GAL4 driver line", "driver,nervous system"],
+            [
+                "LAB-001",
+                "w[1118]; P{GAL4-elav.L}3",
+                "Elav-GAL4 driver line",
+                "driver,nervous system",
+            ],
             ["LAB-002", "y[1] w[*]; P{UAS-GFP}", "GFP reporter", "reporter,UAS"],
         ]
     elif template_type == "repository":
         headers = ["stock_id", "genotype", "repository", "repository_stock_id", "notes", "tags"]
         example_rows = [
-            ["BL-3605", "w[1118]; P{GAL4-elav.L}3", "Bloomington", "3605", "Elav-GAL4 driver", "driver"],
+            [
+                "BL-3605",
+                "w[1118]; P{GAL4-elav.L}3",
+                "Bloomington",
+                "3605",
+                "Elav-GAL4 driver",
+                "driver",
+            ],
             ["VDRC-100821", "w[1118]; P{KK}", "VDRC", "100821", "RNAi line", "rnai"],
             ["KY-109706", "w[*]; P{GawB}NP", "Kyoto", "109706", "GAL4 trap", "trap"],
         ]
     else:  # full
         headers = [
-            "stock_id", "genotype", "origin", "repository", "repository_stock_id",
-            "external_source", "tray", "position", "notes", "tags",
+            "stock_id",
+            "genotype",
+            "origin",
+            "repository",
+            "repository_stock_id",
+            "external_source",
+            "tray",
+            "position",
+            "notes",
+            "tags",
         ]
         example_rows = [
             [
-                "BL-3605", "w[1118]; P{GAL4-elav.L}3", "repository", "bdsc", "3605",
-                "", "Rack A", "1", "Elav-GAL4 driver", "driver",
+                "BL-3605",
+                "w[1118]; P{GAL4-elav.L}3",
+                "repository",
+                "bdsc",
+                "3605",
+                "",
+                "Rack A",
+                "1",
+                "Elav-GAL4 driver",
+                "driver",
             ],
             [
-                "LAB-001", "w[1118]; Sp/CyO", "internal", "", "",
-                "", "Rack A", "2", "Balancer stock", "balancer",
+                "LAB-001",
+                "w[1118]; Sp/CyO",
+                "internal",
+                "",
+                "",
+                "",
+                "Rack A",
+                "2",
+                "Balancer stock",
+                "balancer",
             ],
             [
-                "EXT-001", "yw; UAS-ChR2", "external", "", "",
-                "Smith Lab", "Rack B", "1", "Optogenetic line", "optogenetics",
+                "EXT-001",
+                "yw; UAS-ChR2",
+                "external",
+                "",
+                "",
+                "Smith Lab",
+                "Rack B",
+                "1",
+                "Optogenetic line",
+                "optogenetics",
             ],
         ]
 
@@ -535,9 +680,7 @@ def validate_required_fields(row: dict) -> list[str]:
     has_genotype = bool(row.get("genotype"))
 
     if not has_repo_id and not has_genotype:
-        errors.append(
-            "Row must have either a repository stock ID (e.g., BDSC#) or a genotype"
-        )
+        errors.append("Row must have either a repository stock ID (e.g., BDSC#) or a genotype")
 
     return errors
 
@@ -594,9 +737,7 @@ def parse_tags(tags_string: str | None) -> list[str]:
     return [tag.strip() for tag in normalized.split(",") if tag.strip()]
 
 
-def get_column_info(
-    columns: list[str], rows: list[dict], max_samples: int = 5
-) -> list[dict]:
+def get_column_info(columns: list[str], rows: list[dict], max_samples: int = 5) -> list[dict]:
     """Get column info with sample values and auto-detection.
 
     Args:
@@ -621,18 +762,18 @@ def get_column_info(
         # Check auto-detection
         auto_detected = normalize_column_name(col)
 
-        result.append({
-            "name": col,
-            "sample_values": samples,
-            "auto_detected": auto_detected,
-        })
+        result.append(
+            {
+                "name": col,
+                "sample_values": samples,
+                "auto_detected": auto_detected,
+            }
+        )
 
     return result
 
 
-def apply_field_generators(
-    rows: list[dict], generators: list[dict]
-) -> list[dict]:
+def apply_field_generators(rows: list[dict], generators: list[dict]) -> list[dict]:
     """Apply field generation patterns to rows.
 
     Replaces {ColumnName} placeholders with actual column values.
@@ -669,9 +810,7 @@ def apply_field_generators(
     return rows
 
 
-def apply_user_mappings(
-    rows: list[dict], mappings: list[dict]
-) -> tuple[list[dict], list[str]]:
+def apply_user_mappings(rows: list[dict], mappings: list[dict]) -> tuple[list[dict], list[str]]:
     """Apply user-defined column mappings to rows with coalesce support.
 
     When multiple columns map to the same target field (coalesce mapping),
@@ -744,7 +883,9 @@ def apply_user_mappings(
 
             if target_field == "custom":
                 # Store in metadata using custom_key if provided, else auto-generate from column name
-                metadata_key = mapping.get("custom_key") or col_name.lower().replace(" ", "_").replace("-", "_")
+                metadata_key = mapping.get("custom_key") or col_name.lower().replace(
+                    " ", "_"
+                ).replace("-", "_")
                 metadata[metadata_key] = value_str
                 if metadata_key not in metadata_keys_used:
                     metadata_keys_used.append(metadata_key)
@@ -753,13 +894,15 @@ def apply_user_mappings(
                 if target_field in norm_row:
                     # Field already has a value - this is a coalesce conflict!
                     existing_col = coalesce_sources.get(target_field, "unknown")
-                    coalesce_conflicts.append({
-                        "field": target_field,
-                        "columns": {
-                            existing_col: norm_row[target_field],
-                            col_name: value_str,
-                        },
-                    })
+                    coalesce_conflicts.append(
+                        {
+                            "field": target_field,
+                            "columns": {
+                                existing_col: norm_row[target_field],
+                                col_name: value_str,
+                            },
+                        }
+                    )
                 else:
                     # First non-empty value - use it
                     norm_row[target_field] = value_str
@@ -778,10 +921,7 @@ def apply_user_mappings(
 
         # Auto-set repository from column name hint if not explicitly set
         # Use the column that actually provided the repository_stock_id value
-        if (
-            not norm_row.get("repository")
-            and norm_row.get("repository_stock_id")
-        ):
+        if not norm_row.get("repository") and norm_row.get("repository_stock_id"):
             source_col = coalesce_sources.get("repository_stock_id")
             if source_col and source_col in repo_hints:
                 norm_row["repository"] = repo_hints[source_col]

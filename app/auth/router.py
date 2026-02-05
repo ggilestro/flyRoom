@@ -1,24 +1,24 @@
 """Authentication API routes."""
 
-from typing import Annotated, Optional
-from pydantic import BaseModel
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.auth.schemas import (
-    UserRegister,
-    UserLogin,
-    Token,
-    UserResponse,
-    PasswordChange,
-    UserUpdate,
     ForgotPassword,
+    PasswordChange,
     PasswordReset,
+    Token,
+    UserLogin,
+    UserRegister,
+    UserResponse,
+    UserUpdate,
 )
 from app.auth.service import AuthService, get_auth_service
-from app.dependencies import get_db, CurrentUser, CurrentAdmin
+from app.dependencies import CurrentAdmin, CurrentUser, get_db
 
 router = APIRouter()
 
@@ -27,7 +27,7 @@ class RegisterResponse(BaseModel):
     """Response for registration endpoint."""
 
     message: str
-    token: Optional[Token] = None
+    token: Token | None = None
     pending_approval: bool = False
     email_verification_required: bool = True
 
@@ -347,9 +347,7 @@ async def forgot_password(
     service.request_password_reset(data.email, base_url)
 
     # Always return success to prevent email enumeration
-    return {
-        "message": "If an account with that email exists, a password reset link has been sent."
-    }
+    return {"message": "If an account with that email exists, a password reset link has been sent."}
 
 
 @router.post("/reset-password")

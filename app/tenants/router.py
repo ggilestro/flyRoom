@@ -5,13 +5,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db, CurrentAdminUser, CurrentTenantId
+from app.dependencies import CurrentAdminUser, CurrentTenantId, get_db
 from app.tenants.schemas import (
-    UserInvite,
-    UserUpdateAdmin,
-    UserListResponse,
     TenantResponse,
     TenantUpdate,
+    UserInvite,
+    UserListResponse,
+    UserUpdateAdmin,
 )
 from app.tenants.service import TenantService, get_tenant_service
 

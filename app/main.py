@@ -2,9 +2,8 @@
 
 import logging
 from contextlib import asynccontextmanager
-from typing import Optional
 
-from fastapi import FastAPI, Request, Depends, Cookie
+from fastapi import Cookie, Depends, FastAPI, Request
 
 # Configure logging
 logging.basicConfig(
@@ -17,10 +16,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
-from app.db.database import init_db, get_db
-from app.db.models import User
 from app.auth.utils import decode_access_token
+from app.config import get_settings
+from app.db.database import get_db, init_db
+from app.db.models import User
 
 settings = get_settings()
 
@@ -65,16 +64,16 @@ templates.env.globals["app_name"] = settings.app_name
 
 # Import and include routers
 from app.auth.router import router as auth_router
-from app.stocks.router import router as stocks_router
 from app.crosses.router import router as crosses_router
-from app.labels.router import router as labels_router
 from app.imports.router import router as imports_router
-from app.tenants.router import router as tenants_router
-from app.plugins.router import router as plugins_router
+from app.labels.router import router as labels_router
 from app.organizations.router import router as organizations_router
-from app.trays.router import router as trays_router
+from app.plugins.router import router as plugins_router
 from app.requests.router import router as requests_router
+from app.stocks.router import router as stocks_router
 from app.tags.router import router as tags_router
+from app.tenants.router import router as tenants_router
+from app.trays.router import router as trays_router
 
 # API routes
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
@@ -92,8 +91,8 @@ app.include_router(tags_router, prefix="/api/tags", tags=["tags"])
 
 def get_current_user_from_cookie(
     db: Session,
-    access_token: Optional[str] = None,
-) -> Optional[User]:
+    access_token: str | None = None,
+) -> User | None:
     """Get current user from access token cookie.
 
     Args:
@@ -124,7 +123,7 @@ def get_current_user_from_cookie(
 async def home(
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the home page / dashboard.
 
@@ -141,23 +140,31 @@ async def home(
         return RedirectResponse(url="/login", status_code=302)
 
     # Get dashboard stats
-    from app.db.models import Stock, Cross, Tag, CrossStatus
+    from app.db.models import Cross, CrossStatus, Stock, Tag
 
     stats = {
-        "total_stocks": db.query(Stock).filter(
+        "total_stocks": db.query(Stock)
+        .filter(
             Stock.tenant_id == current_user.tenant_id,
-            Stock.is_active == True,
-        ).count(),
-        "active_crosses": db.query(Cross).filter(
+            Stock.is_active,
+        )
+        .count(),
+        "active_crosses": db.query(Cross)
+        .filter(
             Cross.tenant_id == current_user.tenant_id,
             Cross.status.in_([CrossStatus.PLANNED, CrossStatus.IN_PROGRESS]),
-        ).count(),
-        "total_tags": db.query(Tag).filter(
+        )
+        .count(),
+        "total_tags": db.query(Tag)
+        .filter(
             Tag.tenant_id == current_user.tenant_id,
-        ).count(),
-        "recent_updates": db.query(Stock).filter(
+        )
+        .count(),
+        "recent_updates": db.query(Stock)
+        .filter(
             Stock.tenant_id == current_user.tenant_id,
-        ).count(),  # Simplified for now
+        )
+        .count(),  # Simplified for now
     }
 
     return templates.TemplateResponse(
@@ -188,7 +195,7 @@ async def login_page(request: Request):
 
 
 @app.get("/register", response_class=HTMLResponse)
-async def register_page(request: Request, invite: Optional[str] = None):
+async def register_page(request: Request, invite: str | None = None):
     """Render the registration page.
 
     Args:
@@ -209,7 +216,7 @@ async def register_page(request: Request, invite: Optional[str] = None):
 
 
 @app.get("/verify-email", response_class=HTMLResponse)
-async def verify_email_page(request: Request, token: Optional[str] = None):
+async def verify_email_page(request: Request, token: str | None = None):
     """Render the email verification page.
 
     This page handles the verification when user clicks the link in their email.
@@ -248,7 +255,7 @@ async def forgot_password_page(request: Request):
 
 
 @app.get("/reset-password", response_class=HTMLResponse)
-async def reset_password_page(request: Request, token: Optional[str] = None):
+async def reset_password_page(request: Request, token: str | None = None):
     """Render the password reset page.
 
     Args:
@@ -272,7 +279,7 @@ async def reset_password_page(request: Request, token: Optional[str] = None):
 async def stocks_page(
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the stocks list page.
 
@@ -302,7 +309,7 @@ async def stocks_page(
 async def stocks_new_page(
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the new stock form page.
 
@@ -332,7 +339,7 @@ async def stocks_new_page(
 async def stocks_import_page(
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the stocks import page.
 
@@ -362,7 +369,7 @@ async def stocks_import_page(
 async def stocks_import_bdsc_page(
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the BDSC import page.
 
@@ -393,7 +400,7 @@ async def stock_detail_page(
     stock_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the stock detail page.
 
@@ -425,7 +432,7 @@ async def stock_detail_page(
 async def crosses_page(
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the crosses list page.
 
@@ -455,7 +462,7 @@ async def crosses_page(
 async def crosses_new_page(
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the new cross form page.
 
@@ -486,7 +493,7 @@ async def cross_detail_page(
     cross_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the cross detail page.
 
@@ -518,7 +525,7 @@ async def cross_detail_page(
 async def settings_page(
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the user settings page.
 
@@ -548,7 +555,7 @@ async def settings_page(
 async def labels_page(
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the labels page.
 
@@ -578,7 +585,7 @@ async def labels_page(
 async def admin_page(
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the admin panel page.
 
@@ -614,7 +621,7 @@ async def admin_page(
 async def trays_page(
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the trays management page.
 
@@ -645,7 +652,7 @@ async def tray_detail_page(
     tray_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the tray detail page.
 
@@ -677,7 +684,7 @@ async def tray_detail_page(
 async def tags_page(
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the tags management page.
 
@@ -707,7 +714,7 @@ async def tags_page(
 async def exchange_page(
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the public stocks exchange page.
 
@@ -737,7 +744,7 @@ async def exchange_page(
 async def my_requests_page(
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the my stock requests page.
 
@@ -767,7 +774,7 @@ async def my_requests_page(
 async def admin_requests_page(
     request: Request,
     db: Session = Depends(get_db),
-    access_token: Optional[str] = Cookie(None),
+    access_token: str | None = Cookie(None),
 ):
     """Render the incoming stock requests page (admin).
 
@@ -827,14 +834,54 @@ async def manifest():
         "scope": "/",
         "lang": "en",
         "icons": [
-            {"src": "/static/icons/icon-72.png", "sizes": "72x72", "type": "image/png", "purpose": "any maskable"},
-            {"src": "/static/icons/icon-96.png", "sizes": "96x96", "type": "image/png", "purpose": "any maskable"},
-            {"src": "/static/icons/icon-128.png", "sizes": "128x128", "type": "image/png", "purpose": "any maskable"},
-            {"src": "/static/icons/icon-144.png", "sizes": "144x144", "type": "image/png", "purpose": "any maskable"},
-            {"src": "/static/icons/icon-152.png", "sizes": "152x152", "type": "image/png", "purpose": "any maskable"},
-            {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-            {"src": "/static/icons/icon-384.png", "sizes": "384x384", "type": "image/png", "purpose": "any maskable"},
-            {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+            {
+                "src": "/static/icons/icon-72.png",
+                "sizes": "72x72",
+                "type": "image/png",
+                "purpose": "any maskable",
+            },
+            {
+                "src": "/static/icons/icon-96.png",
+                "sizes": "96x96",
+                "type": "image/png",
+                "purpose": "any maskable",
+            },
+            {
+                "src": "/static/icons/icon-128.png",
+                "sizes": "128x128",
+                "type": "image/png",
+                "purpose": "any maskable",
+            },
+            {
+                "src": "/static/icons/icon-144.png",
+                "sizes": "144x144",
+                "type": "image/png",
+                "purpose": "any maskable",
+            },
+            {
+                "src": "/static/icons/icon-152.png",
+                "sizes": "152x152",
+                "type": "image/png",
+                "purpose": "any maskable",
+            },
+            {
+                "src": "/static/icons/icon-192.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable",
+            },
+            {
+                "src": "/static/icons/icon-384.png",
+                "sizes": "384x384",
+                "type": "image/png",
+                "purpose": "any maskable",
+            },
+            {
+                "src": "/static/icons/icon-512.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any maskable",
+            },
         ],
         "categories": ["productivity", "utilities"],
         "shortcuts": [
@@ -858,7 +905,7 @@ async def service_worker():
     cache_name = settings.app_name.lower().replace(" ", "-") + "-v1"
     db_name = settings.app_name.lower().replace(" ", "-") + "-offline"
 
-    sw_content = f'''/**
+    sw_content = f"""/**
  * {settings.app_name} Service Worker
  * Provides offline support and caching
  */
@@ -1088,7 +1135,7 @@ self.addEventListener('notificationclick', (event) => {{
 }});
 
 console.log('[SW] Service Worker loaded');
-'''
+"""
 
     return Response(
         content=sw_content,
