@@ -182,6 +182,8 @@ class ImportPreviewV2(BaseModel):
         sample_rows: Raw sample data rows (first 10 for preview).
         can_import: Whether import can proceed (has required fields).
         validation_warnings: Warning messages.
+        tray_column_mapped: Whether tray_name is in user's column mappings.
+        stats: Import statistics (populated after user confirms mappings).
     """
 
     columns: list[ColumnInfo] = Field(default_factory=list)
@@ -191,6 +193,22 @@ class ImportPreviewV2(BaseModel):
     sample_rows: list[dict] = Field(default_factory=list)
     can_import: bool = False
     validation_warnings: list[str] = Field(default_factory=list)
+    tray_column_mapped: bool = False
+    stats: Optional["ImportStats"] = None
+
+
+class TrayResolution(BaseModel):
+    """User's resolution for a tray name conflict.
+
+    Attributes:
+        tray_name: Original tray name from CSV.
+        action: Resolution action - "use_existing", "create_new", or "skip".
+        new_name: For "create_new" action, the new unique name to use.
+    """
+
+    tray_name: str
+    action: str  # "use_existing", "create_new", "skip"
+    new_name: Optional[str] = None
 
 
 class ImportExecuteV2Request(BaseModel):
@@ -200,11 +218,13 @@ class ImportExecuteV2Request(BaseModel):
         column_mappings: User-defined column mappings.
         field_generators: Patterns for generating fields.
         config: Import configuration options.
+        tray_resolutions: User's resolutions for tray name conflicts.
     """
 
     column_mappings: list[UserColumnMapping] = Field(default_factory=list)
     field_generators: list[FieldGenerator] = Field(default_factory=list)
     config: "ImportConfig" = Field(default_factory=lambda: ImportConfig())
+    tray_resolutions: list[TrayResolution] = Field(default_factory=list)
 
 
 class ImportStats(BaseModel):

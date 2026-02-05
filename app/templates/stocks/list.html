@@ -80,7 +80,7 @@
                                 <div class="text-sm text-gray-900 max-w-md truncate" x-text="stock.genotype"></div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="stock.repository ? stock.repository.toUpperCase() : '-'"></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="stock.location || '-'"></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="stock.tray?.name || '-'"></td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <a :href="'/stocks/' + stock.id" class="text-primary-600 hover:text-primary-900">View</a>
                             </td>

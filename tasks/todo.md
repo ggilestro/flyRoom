@@ -1,3 +1,49 @@
+# Improve Tray Handling in CSV Import
+
+## Current Task
+The `location` column was mistakenly mapped to `tray_name`, causing unwanted tray auto-creation. Implemented clearer tray handling with explicit user confirmation.
+
+**Date Started:** 2026-02-05
+**Date Completed:** 2026-02-05
+**Status:** Complete
+
+## Problem Statement
+1. Location column auto-detection was causing unwanted tray creation
+2. Import workflow needed clearer tray handling with explicit user confirmation
+3. Tray auto-creation should be conditional on explicit tray column mapping
+
+## Implementation Summary
+
+### Schema Changes (`app/imports/schemas.py`)
+- Added `tray_column_mapped: bool` to `ImportPreviewV2`
+- Added `stats: Optional[ImportStats]` to `ImportPreviewV2`
+- Added `TrayResolution` schema for user's resolution of tray name conflicts
+- Added `tray_resolutions: list[TrayResolution]` to `ImportExecuteV2Request`
+
+### Backend Changes (`app/imports/router.py`)
+- Added `/validate-mappings` endpoint to validate user mappings and return tray statistics
+- Updated `_get_or_create_tray()` to accept `tray_resolutions` and `tray_column_mapped` params
+- Added `_create_new_tray()` helper function
+- Updated `execute_v2_phase1` and `execute_v2_phase2` to:
+  - Only process trays when tray_name column is explicitly mapped
+  - Apply tray resolutions (use_existing, create_new, skip)
+
+### Frontend Changes (`app/templates/stocks/import.html`)
+- Added conditional Step 3: Tray Configuration between Map and Preview
+- Dynamic step numbering (Upload → Map → [Trays] → Preview → [Resolve])
+- Tray Configuration step shows:
+  - Existing tray conflicts with resolution options (use existing, create new, skip)
+  - New trays to create with auto-create toggle
+  - Default tray type and max positions configuration
+- New state variables: `showTrayStep`, `mappingStats`, `trayResolutions`, `trayNewNames`
+- New functions: `validateAndContinue()`, `handleTrayResolutionChange()`, step helpers
+
+## Test Results
+- All 84 import tests pass
+- Verified schema changes compile correctly
+
+---
+
 # Two-Phase Import with Conflict Resolution
 
 ## Current Task

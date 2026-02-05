@@ -13,6 +13,7 @@ from app.trays.schemas import (
     TrayListResponse,
     TrayPositionInfo,
     TrayDetailResponse,
+    TrayStockInfo,
 )
 
 
@@ -154,11 +155,18 @@ class TrayService:
                     stock_name=stock.stock_id if stock else None,
                 ))
 
-        stock_count = (
-            self.db.query(func.count(Stock.id))
-            .filter(Stock.tray_id == tray.id, Stock.is_active == True)
-            .scalar()
-        )
+        stock_count = len(stocks)
+
+        # Build list of all stocks in this tray
+        stock_list = [
+            TrayStockInfo(
+                id=s.id,
+                stock_id=s.stock_id,
+                genotype=s.genotype or "",
+                position=s.position,
+            )
+            for s in stocks
+        ]
 
         return TrayDetailResponse(
             id=tray.id,
@@ -171,6 +179,7 @@ class TrayService:
             created_at=tray.created_at,
             stock_count=stock_count,
             positions=positions,
+            stocks=stock_list,
         )
 
     def create_tray(self, data: TrayCreate) -> Tray:

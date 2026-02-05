@@ -44,6 +44,7 @@ from app.imports.schemas import (
     FieldGenerator,
     ImportPreviewV2,
     ImportExecuteV2Request,
+    TrayResolution,
     ConflictType,
     RowConflict,
     ConflictingRow,
@@ -426,8 +427,71 @@ def _get_or_create_tray(
     tray_name: str,
     config: ImportConfig,
     created_trays: dict[str, Tray],
+    tray_resolutions: dict[str, TrayResolution] | None = None,
+    tray_column_mapped: bool = True,
 ) -> Tray | None:
-    """Get existing tray or create a new one.
+    """Get existing tray or create a new one, respecting user resolutions.
+
+    Args:
+        db: Database session.
+        tenant_id: Tenant ID.
+        tray_name: Tray name.
+        config: Import configuration.
+        created_trays: Cache of already-created trays.
+        tray_resolutions: User's resolutions for tray conflicts (tray_name -> resolution).
+        tray_column_mapped: Whether tray_name was explicitly mapped by user.
+
+    Returns:
+        Tray | None: Tray object or None if skipped/can't create.
+    """
+    # If tray column wasn't explicitly mapped, don't auto-create trays
+    if not tray_column_mapped:
+        return None
+
+    # Check cache first
+    if tray_name in created_trays:
+        return created_trays[tray_name]
+
+    # Check if there's a resolution for this tray
+    resolution = tray_resolutions.get(tray_name) if tray_resolutions else None
+
+    # Check database for existing tray
+    existing_tray = (
+        db.query(Tray)
+        .filter(Tray.tenant_id == tenant_id, Tray.name == tray_name)
+        .first()
+    )
+
+    if existing_tray:
+        # Tray exists - handle according to resolution
+        if resolution:
+            if resolution.action == "skip":
+                # Don't assign to any tray
+                return None
+            elif resolution.action == "create_new" and resolution.new_name:
+                # Create a new tray with the specified name instead
+                return _create_new_tray(
+                    db, tenant_id, resolution.new_name, config, created_trays
+                )
+            # Default: use_existing - fall through to return existing
+        created_trays[tray_name] = existing_tray
+        return existing_tray
+
+    # Tray doesn't exist - create if allowed
+    if not config.auto_create_trays:
+        return None
+
+    return _create_new_tray(db, tenant_id, tray_name, config, created_trays)
+
+
+def _create_new_tray(
+    db: Session,
+    tenant_id: str,
+    tray_name: str,
+    config: ImportConfig,
+    created_trays: dict[str, Tray],
+) -> Tray:
+    """Create a new tray with the given name.
 
     Args:
         db: Database session.
@@ -437,26 +501,11 @@ def _get_or_create_tray(
         created_trays: Cache of already-created trays.
 
     Returns:
-        Tray | None: Tray object or None if can't create.
+        Tray: The created tray.
     """
-    # Check cache first
+    # Check cache first (in case we already created it with this name)
     if tray_name in created_trays:
         return created_trays[tray_name]
-
-    # Check database
-    tray = (
-        db.query(Tray)
-        .filter(Tray.tenant_id == tenant_id, Tray.name == tray_name)
-        .first()
-    )
-
-    if tray:
-        created_trays[tray_name] = tray
-        return tray
-
-    # Create new tray if allowed
-    if not config.auto_create_trays:
-        return None
 
     tray_type = TrayType.NUMERIC
     if config.default_tray_type == "grid":
@@ -752,6 +801,86 @@ async def preview_import_v2(
     )
 
 
+@router.post("/validate-mappings")
+async def validate_mappings(
+    file: Annotated[UploadFile, File(description="CSV or Excel file")],
+    mappings_json: Annotated[str, Form(description="JSON-encoded column mappings")],
+    db: Annotated[Session, Depends(get_db)],
+    tenant_id: CurrentTenantId,
+) -> ImportPreviewV2:
+    """Validate user mappings and return stats including tray information.
+
+    This endpoint is called after the user completes column mapping (step 2)
+    to determine if a tray configuration step is needed.
+
+    Args:
+        file: Uploaded CSV or Excel file.
+        mappings_json: JSON string containing column_mappings and field_generators.
+        db: Database session.
+        tenant_id: Current tenant ID.
+
+    Returns:
+        ImportPreviewV2: Preview with stats including tray_column_mapped and tray lists.
+    """
+    import json
+
+    # Parse the mappings JSON
+    try:
+        mappings_data = json.loads(mappings_json)
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid JSON in mappings: {e}",
+        )
+
+    column_mappings = mappings_data.get("column_mappings", [])
+    field_generators = mappings_data.get("field_generators", [])
+
+    # Parse file
+    columns, raw_rows = _parse_file_raw(file)
+
+    if not raw_rows:
+        return ImportPreviewV2(
+            validation_warnings=["File is empty or has no data rows"],
+            can_import=False,
+        )
+
+    # Apply field generators first
+    if field_generators:
+        raw_rows = apply_field_generators(raw_rows, field_generators)
+
+    # Apply user mappings
+    rows, metadata_keys = apply_user_mappings(raw_rows, column_mappings)
+
+    # Check if tray_name is mapped
+    tray_column_mapped = any(
+        m.get("target_field") == "tray_name" for m in column_mappings
+    )
+
+    # Compute statistics including tray info
+    stats = _compute_stats(rows, str(tenant_id), db)
+
+    # Get column info for display
+    column_info = get_column_info(columns, raw_rows[:10])
+
+    # Determine if import can proceed
+    has_repo_id = any(row.get("repository_stock_id") for row in rows)
+    has_genotype = any(row.get("genotype") for row in rows)
+    can_import = has_repo_id or has_genotype
+
+    return ImportPreviewV2(
+        columns=[ColumnInfo(**c) for c in column_info],
+        available_fields=AVAILABLE_FIELDS,
+        required_fields=REQUIRED_FIELDS_ONE_OF,
+        total_rows=len(rows),
+        sample_rows=raw_rows[:10],
+        can_import=can_import,
+        validation_warnings=[],
+        tray_column_mapped=tray_column_mapped,
+        stats=stats,
+    )
+
+
 @router.post("/execute-v2")
 async def execute_import_v2(
     file: Annotated[UploadFile, File(description="CSV or Excel file")],
@@ -997,6 +1126,15 @@ async def execute_import_v2_phase1(
     config_data = mappings_data.get("config", {})
     config = ImportConfig(**config_data)
 
+    # Extract tray resolutions and check if tray column is mapped
+    tray_resolutions_data = mappings_data.get("tray_resolutions", [])
+    tray_resolutions_lookup: dict[str, TrayResolution] = {
+        tr["tray_name"]: TrayResolution(**tr) for tr in tray_resolutions_data
+    }
+    tray_column_mapped = any(
+        m.get("target_field") == "tray_name" for m in column_mappings
+    )
+
     # Parse file
     columns, raw_rows = _parse_file_raw(file)
 
@@ -1131,14 +1269,16 @@ async def execute_import_v2_phase1(
                 else None
             )
 
-        # Handle tray assignment
+        # Handle tray assignment (only if tray_name column was explicitly mapped)
         tray_id = None
         position = row.get("position")
         tray_name = row.get("tray_name")
 
-        if tray_name:
+        if tray_name and tray_column_mapped:
             tray = _get_or_create_tray(
-                db, str(tenant_id), tray_name, config, created_trays
+                db, str(tenant_id), tray_name, config, created_trays,
+                tray_resolutions=tray_resolutions_lookup,
+                tray_column_mapped=tray_column_mapped,
             )
             if tray:
                 tray_id = tray.id
@@ -1263,6 +1403,18 @@ async def execute_import_v2_phase2(
 
     config = ImportConfig(**session["config"])
     conflicting_rows = session["conflicting_rows"]
+    column_mappings = session.get("column_mappings", [])
+
+    # Check if tray column was explicitly mapped
+    tray_column_mapped = any(
+        m.get("target_field") == "tray_name" for m in column_mappings
+    )
+
+    # Extract tray resolutions from the request (if any)
+    tray_resolutions_data = request_data.get("tray_resolutions", [])
+    tray_resolutions_lookup: dict[str, TrayResolution] = {
+        tr["tray_name"]: TrayResolution(**tr) for tr in tray_resolutions_data
+    }
 
     # Build resolution lookup: row_index -> resolution
     resolution_lookup = {r["row_index"]: r for r in resolutions}
@@ -1368,14 +1520,16 @@ async def execute_import_v2_phase2(
             else None
         )
 
-        # Handle tray
+        # Handle tray (only if tray_name column was explicitly mapped)
         tray_id = None
         position = row.get("position")
         tray_name = row.get("tray_name")
 
-        if tray_name:
+        if tray_name and tray_column_mapped:
             tray = _get_or_create_tray(
-                db, str(tenant_id), tray_name, config, created_trays
+                db, str(tenant_id), tray_name, config, created_trays,
+                tray_resolutions=tray_resolutions_lookup,
+                tray_column_mapped=tray_column_mapped,
             )
             if tray:
                 tray_id = tray.id

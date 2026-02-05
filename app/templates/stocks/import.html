@@ -24,6 +24,7 @@
     <div class="bg-white shadow rounded-lg p-4">
         <nav aria-label="Progress">
             <ol class="flex items-center justify-center space-x-4">
+                <!-- Step 1: Upload -->
                 <li class="flex items-center">
                     <span class="flex items-center justify-center w-8 h-8 rounded-full"
                           :class="currentStep >= 1 ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-500'">1</span>
@@ -32,26 +33,40 @@
                 <li class="flex items-center">
                     <div class="w-8 h-0.5" :class="currentStep >= 2 ? 'bg-primary-600' : 'bg-gray-200'"></div>
                 </li>
+                <!-- Step 2: Map -->
                 <li class="flex items-center">
                     <span class="flex items-center justify-center w-8 h-8 rounded-full"
                           :class="currentStep >= 2 ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-500'">2</span>
                     <span class="ml-2 text-sm font-medium" :class="currentStep >= 2 ? 'text-primary-600' : 'text-gray-500'">Map</span>
                 </li>
-                <li class="flex items-center">
+                <!-- Step 3: Trays (conditional) -->
+                <li class="flex items-center" x-show="showTrayStep">
                     <div class="w-8 h-0.5" :class="currentStep >= 3 ? 'bg-primary-600' : 'bg-gray-200'"></div>
                 </li>
-                <li class="flex items-center">
+                <li class="flex items-center" x-show="showTrayStep">
                     <span class="flex items-center justify-center w-8 h-8 rounded-full"
                           :class="currentStep >= 3 ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-500'">3</span>
-                    <span class="ml-2 text-sm font-medium" :class="currentStep >= 3 ? 'text-primary-600' : 'text-gray-500'">Preview</span>
+                    <span class="ml-2 text-sm font-medium" :class="currentStep >= 3 ? 'text-primary-600' : 'text-gray-500'">Trays</span>
                 </li>
+                <!-- Preview step (step 3 or 4 depending on tray step) -->
+                <li class="flex items-center">
+                    <div class="w-8 h-0.5" :class="currentStep >= getPreviewStep() ? 'bg-primary-600' : 'bg-gray-200'"></div>
+                </li>
+                <li class="flex items-center">
+                    <span class="flex items-center justify-center w-8 h-8 rounded-full"
+                          :class="currentStep >= getPreviewStep() ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-500'"
+                          x-text="showTrayStep ? '4' : '3'"></span>
+                    <span class="ml-2 text-sm font-medium" :class="currentStep >= getPreviewStep() ? 'text-primary-600' : 'text-gray-500'">Preview</span>
+                </li>
+                <!-- Resolve step (conditional) -->
                 <li class="flex items-center" x-show="phase1Result?.conflicting_rows?.length > 0">
-                    <div class="w-8 h-0.5" :class="currentStep >= 4 ? 'bg-primary-600' : 'bg-gray-200'"></div>
+                    <div class="w-8 h-0.5" :class="currentStep >= getResolveStep() ? 'bg-primary-600' : 'bg-gray-200'"></div>
                 </li>
                 <li class="flex items-center" x-show="phase1Result?.conflicting_rows?.length > 0">
                     <span class="flex items-center justify-center w-8 h-8 rounded-full"
-                          :class="currentStep >= 4 ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-500'">4</span>
-                    <span class="ml-2 text-sm font-medium" :class="currentStep >= 4 ? 'text-amber-600' : 'text-gray-500'">Resolve</span>
+                          :class="currentStep >= getResolveStep() ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-500'"
+                          x-text="showTrayStep ? '5' : '4'"></span>
+                    <span class="ml-2 text-sm font-medium" :class="currentStep >= getResolveStep() ? 'text-amber-600' : 'text-gray-500'">Resolve</span>
                 </li>
             </ol>
         </nav>
@@ -623,9 +638,133 @@
                 </svg>
                 Back
             </button>
-            <button @click="goToStep(3)"
-                    :disabled="!canProceedToPreview()"
+            <button @click="validateAndContinue()"
+                    :disabled="!canProceedToPreview() || mappingValidationLoading"
                     class="inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                <span x-show="mappingValidationLoading" class="mr-2">
+                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </span>
+                <span x-text="mappingValidationLoading ? 'Validating...' : 'Continue'"></span>
+                <svg class="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 3: Tray Configuration (conditional - only when tray column is mapped) -->
+    <div x-show="currentStep === 3 && showTrayStep" x-cloak class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Tray Configuration</h2>
+        <p class="text-sm text-gray-600 mb-6">
+            You've mapped a column to tray names. Configure how trays should be handled during import.
+        </p>
+
+        <!-- Existing Tray Conflicts -->
+        <template x-if="mappingStats?.existing_trays?.length > 0">
+            <div class="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <h3 class="font-medium text-amber-900 mb-2 flex items-center">
+                    <svg class="h-5 w-5 text-amber-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                    Tray Name Conflicts
+                </h3>
+                <p class="text-sm text-amber-700 mb-4">
+                    These tray names from your file match existing trays in your inventory:
+                </p>
+                <div class="space-y-3">
+                    <template x-for="trayName in mappingStats?.existing_trays || []" :key="trayName">
+                        <div class="flex items-center gap-4 py-3 px-4 bg-white rounded-md border border-amber-200">
+                            <span class="font-medium text-gray-900 min-w-32" x-text="trayName"></span>
+                            <select x-model="trayResolutions[trayName]"
+                                    @change="handleTrayResolutionChange(trayName)"
+                                    class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm">
+                                <option value="use_existing">Use existing tray (assign stocks to it)</option>
+                                <option value="create_new">Create new tray with different name</option>
+                                <option value="skip">Skip (don't assign to any tray)</option>
+                            </select>
+                            <!-- Show rename input if create_new selected -->
+                            <input x-show="trayResolutions[trayName] === 'create_new'"
+                                   type="text"
+                                   x-model="trayNewNames[trayName]"
+                                   :placeholder="trayName + ' (imported)'"
+                                   class="w-48 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm">
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <!-- New Trays to Create -->
+        <template x-if="mappingStats?.trays_to_create?.length > 0">
+            <div class="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 class="font-medium text-blue-900 mb-2 flex items-center">
+                    <svg class="h-5 w-5 text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    New Trays to Create
+                </h3>
+                <p class="text-sm text-blue-700 mb-3">
+                    These trays will be automatically created during import:
+                </p>
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <template x-for="trayName in mappingStats?.trays_to_create || []" :key="trayName">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
+                              x-text="trayName"></span>
+                    </template>
+                </div>
+
+                <!-- Auto-create toggle -->
+                <div class="border-t border-blue-200 pt-4 mt-4">
+                    <label class="flex items-center">
+                        <input type="checkbox" x-model="importOptions.autoCreateTrays"
+                               class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600">
+                        <span class="ml-2 text-sm text-gray-700">Auto-create these trays during import</span>
+                    </label>
+
+                    <!-- Tray type and max positions if auto-create enabled -->
+                    <div x-show="importOptions.autoCreateTrays" x-transition class="mt-4 grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Default Tray Type</label>
+                            <select x-model="importOptions.defaultTrayType"
+                                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm">
+                                <option value="numeric">Numeric (1, 2, 3...)</option>
+                                <option value="grid">Grid (A1, A2, B1...)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Max Positions</label>
+                            <input type="number" x-model="importOptions.defaultMaxPositions"
+                                   min="1" max="1000"
+                                   class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- No trays message (edge case) -->
+        <template x-if="!mappingStats?.existing_trays?.length && !mappingStats?.trays_to_create?.length">
+            <div class="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <p class="text-sm text-gray-600">
+                    No tray names found in the mapped column. Stocks will be imported without tray assignments.
+                </p>
+            </div>
+        </template>
+
+        <!-- Navigation -->
+        <div class="mt-6 flex justify-between">
+            <button @click="goToStep(2)"
+                    class="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                <svg class="inline h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
+            </button>
+            <button @click="goToStep(getPreviewStep())"
+                    class="inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
                 Continue
                 <svg class="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -634,8 +773,8 @@
         </div>
     </div>
 
-    <!-- Step 3: Preview & Import -->
-    <div x-show="currentStep === 3" x-cloak class="bg-white shadow rounded-lg p-6">
+    <!-- Preview & Import (Step 3 or 4 depending on tray step) -->
+    <div x-show="currentStep === getPreviewStep()" x-cloak class="bg-white shadow rounded-lg p-6">
         <h2 class="text-lg font-medium text-gray-900 mb-4">Preview & Import</h2>
 
         <!-- Mapping Summary -->
@@ -755,14 +894,14 @@
                 <label class="flex items-center">
                     <input type="checkbox" x-model="importOptions.fetchMetadata"
                            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600">
-                    <span class="ml-2 text-sm text-gray-700">Fetch metadata from BDSC for repository stocks</span>
+                    <span class="ml-2 text-sm text-gray-700">Fetch metadata from FlyBase for repository stocks</span>
                 </label>
             </div>
         </div>
 
         <!-- Action Buttons -->
         <div class="flex justify-between">
-            <button @click="goToStep(2)"
+            <button @click="goToStep(showTrayStep ? 3 : 2)"
                     class="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
                 <svg class="inline h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -783,8 +922,8 @@
         </div>
     </div>
 
-    <!-- Step 4: Resolve Conflicts -->
-    <div x-show="currentStep === 4" x-cloak class="space-y-6">
+    <!-- Resolve Conflicts step (dynamic step number) -->
+    <div x-show="currentStep === getResolveStep()" x-cloak class="space-y-6">
         <!-- Phase 1 Summary -->
         <div class="bg-white shadow rounded-lg p-6">
             <h2 class="text-lg font-medium text-gray-900 mb-4">Review & Resolve</h2>
@@ -865,7 +1004,7 @@
                                 </button>
                                 <button @click="resolveAllFlagForAttention()"
                                         class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200">
-                                    Flag all for attention
+                                    Keep all as internal + flag
                                 </button>
                             </div>
                         </div>
@@ -1047,7 +1186,7 @@
                                                         :class="getResolution(row.row_index)?.field_values?._flagged
                                                             ? 'bg-green-100 border-green-400'
                                                             : 'bg-amber-50 border-amber-300 hover:bg-amber-100'">
-                                                    <span class="font-medium text-amber-700">Flag for attention</span>
+                                                    <span class="font-medium text-amber-700">Keep as internal + flag</span>
                                                 </button>
                                             </div>
 
@@ -1141,7 +1280,7 @@
                     <span class="text-gray-400 ml-2">across all categories</span>
                 </div>
                 <div class="flex space-x-3">
-                    <button @click="currentStep = 3"
+                    <button @click="currentStep = getPreviewStep()"
                             class="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
                         Back
                     </button>
@@ -1161,8 +1300,8 @@
         </div>
     </div>
 
-    <!-- Import Results (Step 5) -->
-    <div x-show="currentStep === 5 && importResult" x-cloak class="bg-white shadow rounded-lg p-6">
+    <!-- Import Results (final step - dynamic number) -->
+    <div x-show="currentStep === getResultsStep() && importResult" x-cloak class="bg-white shadow rounded-lg p-6">
         <div class="flex items-start">
             <div class="flex-shrink-0">
                 <svg class="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1231,12 +1370,33 @@ function importWizard() {
         showFormatHelp: false,
         importOptions: {
             fetchMetadata: true,
+            autoCreateTrays: true,
+            defaultTrayType: 'numeric',
+            defaultMaxPositions: 100,
         },
         // Two-phase import state
         phase1Result: null,
         conflictResolutions: {},  // row_index -> { action, field_values }
         phase2Loading: false,
         activeConflictTab: null,  // Current conflict type tab
+
+        // Tray handling state
+        mappingValidationLoading: false,
+        showTrayStep: false,
+        mappingStats: null,  // Stats returned from validate-mappings endpoint
+        trayResolutions: {},  // tray_name -> action (use_existing, create_new, skip)
+        trayNewNames: {},  // tray_name -> new_name for create_new action
+
+        // Step number helpers
+        getPreviewStep() {
+            return this.showTrayStep ? 4 : 3;
+        },
+        getResolveStep() {
+            return this.showTrayStep ? 5 : 4;
+        },
+        getResultsStep() {
+            return this.showTrayStep ? 6 : 5;
+        },
 
         handleFileSelect(event) {
             this.selectedFile = event.target.files[0];
@@ -1275,16 +1435,116 @@ function importWizard() {
             this.fieldGenerators = [];
             this.importOptions = {
                 fetchMetadata: true,
+                autoCreateTrays: true,
+                defaultTrayType: 'numeric',
+                defaultMaxPositions: 100,
             };
             this.phase1Result = null;
             this.conflictResolutions = {};
             this.phase2Loading = false;
             this.activeConflictTab = null;
+            // Reset tray state
+            this.mappingValidationLoading = false;
+            this.showTrayStep = false;
+            this.mappingStats = null;
+            this.trayResolutions = {};
+            this.trayNewNames = {};
             document.getElementById('file-upload').value = '';
         },
 
         goToStep(step) {
             this.currentStep = step;
+        },
+
+        // Validate mappings and determine if tray step is needed
+        async validateAndContinue() {
+            if (!this.selectedFile) return;
+
+            this.mappingValidationLoading = true;
+
+            // Build mappings list
+            const mappingsList = [];
+            for (const [colName, mapping] of Object.entries(this.columnMappings)) {
+                if (mapping.target_field) {
+                    const mappingObj = {
+                        column_name: colName,
+                        target_field: mapping.target_field,
+                    };
+                    if (mapping.target_field === 'custom' && mapping.custom_key) {
+                        mappingObj.custom_key = mapping.custom_key;
+                    }
+                    mappingsList.push(mappingObj);
+                }
+            }
+
+            const generatorsList = this.fieldGenerators.filter(g => g.target_field && g.pattern);
+
+            const requestBody = {
+                column_mappings: mappingsList,
+                field_generators: generatorsList,
+            };
+
+            const formData = new FormData();
+            formData.append('file', this.selectedFile);
+            formData.append('mappings_json', JSON.stringify(requestBody));
+
+            try {
+                const response = await fetch('/api/imports/validate-mappings', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData,
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    this.mappingStats = result.stats;
+
+                    // Determine if tray step is needed
+                    const trayColumnMapped = result.tray_column_mapped;
+                    const hasTraysToHandle = (result.stats?.trays_to_create?.length > 0) ||
+                                            (result.stats?.existing_trays?.length > 0);
+
+                    this.showTrayStep = trayColumnMapped && hasTraysToHandle;
+
+                    // Initialize tray resolutions for existing trays (default to use_existing)
+                    if (this.showTrayStep && result.stats?.existing_trays) {
+                        for (const trayName of result.stats.existing_trays) {
+                            if (!this.trayResolutions[trayName]) {
+                                this.trayResolutions[trayName] = 'use_existing';
+                            }
+                        }
+                    }
+
+                    // Go to tray step or preview step
+                    if (this.showTrayStep) {
+                        this.currentStep = 3;  // Tray step
+                    } else {
+                        this.currentStep = this.getPreviewStep();
+                    }
+                } else {
+                    document.getElementById('import-message').innerHTML = `
+                        <div class="mb-4 rounded-md bg-red-50 p-4">
+                            <p class="text-sm text-red-700">${result.detail || 'Failed to validate mappings'}</p>
+                        </div>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('import-message').innerHTML = `
+                    <div class="mb-4 rounded-md bg-red-50 p-4">
+                        <p class="text-sm text-red-700">An error occurred while validating mappings.</p>
+                    </div>`;
+            } finally {
+                this.mappingValidationLoading = false;
+            }
+        },
+
+        // Handle tray resolution changes
+        handleTrayResolutionChange(trayName) {
+            // If switching away from create_new, clear the new name
+            if (this.trayResolutions[trayName] !== 'create_new') {
+                delete this.trayNewNames[trayName];
+            }
         },
 
         async analyzeFile() {
@@ -1632,13 +1892,29 @@ function importWizard() {
             // Build generators list
             const generatorsList = this.fieldGenerators.filter(g => g.target_field && g.pattern);
 
+            // Build tray resolutions list
+            const trayResolutionsList = [];
+            for (const [trayName, action] of Object.entries(this.trayResolutions)) {
+                const resolution = {
+                    tray_name: trayName,
+                    action: action,
+                };
+                if (action === 'create_new' && this.trayNewNames[trayName]) {
+                    resolution.new_name = this.trayNewNames[trayName];
+                }
+                trayResolutionsList.push(resolution);
+            }
+
             const requestBody = {
                 column_mappings: mappingsList,
                 field_generators: generatorsList,
                 config: {
                     fetch_metadata: this.importOptions.fetchMetadata,
-                    auto_create_trays: true,
+                    auto_create_trays: this.importOptions.autoCreateTrays,
+                    default_tray_type: this.importOptions.defaultTrayType,
+                    default_tray_max_positions: parseInt(this.importOptions.defaultMaxPositions) || 100,
                 },
+                tray_resolutions: trayResolutionsList,
             };
 
             const formData = new FormData();
@@ -1659,8 +1935,8 @@ function importWizard() {
                     this.phase1Result = result;
 
                     if (result.conflicting_rows && result.conflicting_rows.length > 0) {
-                        // There are conflicts - go to step 4 for resolution
-                        this.currentStep = 4;
+                        // There are conflicts - go to resolve step
+                        this.currentStep = this.getResolveStep();
                         // Set active tab to first conflict type that has rows (by primary conflict)
                         const conflictTypes = Object.keys(result.conflict_summary || {});
                         this.activeConflictTab = conflictTypes.find(type => this.getRowsForType(type).length > 0) || conflictTypes[0] || null;
@@ -1681,7 +1957,7 @@ function importWizard() {
                             metadata_fetched: result.metadata_fetched,
                             errors: [],
                         };
-                        this.currentStep = 5; // Final results
+                        this.currentStep = this.getResultsStep();
                         document.getElementById('import-message').innerHTML = `
                             <div class="mb-4 rounded-md bg-green-50 p-4">
                                 <p class="text-sm text-green-700">Successfully imported ${result.imported_count} stocks!</p>
@@ -1964,7 +2240,7 @@ function importWizard() {
                         metadata_fetched: (this.phase1Result?.metadata_fetched || 0) + result.metadata_fetched,
                         errors: result.errors,
                     };
-                    this.currentStep = 5; // Final results
+                    this.currentStep = this.getResultsStep();
                     document.getElementById('import-message').innerHTML = `
                         <div class="mb-4 rounded-md bg-green-50 p-4">
                             <p class="text-sm text-green-700">${result.message}</p>

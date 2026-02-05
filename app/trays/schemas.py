@@ -64,7 +64,17 @@ class TrayPositionInfo(BaseModel):
     stock_name: Optional[str] = None  # stock.stock_id
 
 
+class TrayStockInfo(BaseModel):
+    """Schema for stock info in tray detail."""
+
+    id: str
+    stock_id: str  # User-facing stock identifier
+    genotype: str
+    position: Optional[str] = None
+
+
 class TrayDetailResponse(TrayResponse):
     """Schema for tray detail with positions."""
 
     positions: list[TrayPositionInfo] = Field(default_factory=list)
+    stocks: list[TrayStockInfo] = Field(default_factory=list)  # All stocks in this tray
