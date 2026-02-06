@@ -39,6 +39,7 @@
                                placeholder="Search or scan barcode..."
                                type="search"
                                autocomplete="off"
+                               autofocus
                                hx-get="/api/stocks/search"
                                hx-trigger="input changed delay:300ms, keydown[key=='Enter'] changed"
                                hx-target="#search-results"
