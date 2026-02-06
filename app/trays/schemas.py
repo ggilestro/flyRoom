@@ -35,12 +35,22 @@ class TrayUpdate(BaseModel):
     cols: int | None = Field(None, ge=1, le=100)
 
 
+class FlipStatusCounts(BaseModel):
+    """Schema for flip status counts in a tray."""
+
+    ok: int = 0
+    warning: int = 0
+    critical: int = 0
+    never: int = 0
+
+
 class TrayResponse(TrayBase):
     """Schema for tray response."""
 
     id: str
     created_at: datetime
     stock_count: int = 0
+    flip_counts: FlipStatusCounts = Field(default_factory=FlipStatusCounts)
 
     model_config = ConfigDict(from_attributes=True)
 

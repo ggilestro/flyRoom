@@ -129,6 +129,15 @@ class PrintJobStatus(str, enum.Enum):
     CANCELLED = "cancelled"  # User cancelled
 
 
+class FlipStatus(str, enum.Enum):
+    """Stock flip status enumeration based on days since last flip."""
+
+    OK = "ok"  # Recently flipped, within warning threshold
+    WARNING = "warning"  # Approaching critical threshold
+    CRITICAL = "critical"  # Past critical threshold, needs immediate attention
+    NEVER = "never"  # Never been flipped
+
+
 class Organization(Base):
     """Organization model representing a parent entity for labs.
 
@@ -207,6 +216,11 @@ class Tenant(Base):
     )
     default_code_type: Mapped[str] = mapped_column(String(20), default="qr", server_default="qr")
     default_copies: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+
+    # Flip tracking settings
+    flip_warning_days: Mapped[int] = mapped_column(Integer, default=21, server_default="21")
+    flip_critical_days: Mapped[int] = mapped_column(Integer, default=31, server_default="31")
+    flip_reminder_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
 
     # Relationships
     organization: Mapped[Optional["Organization"]] = relationship(
@@ -540,6 +554,12 @@ class Stock(Base):
         back_populates="offspring",
         foreign_keys="Cross.offspring_id",
     )
+    flip_events: Mapped[list["FlipEvent"]] = relationship(
+        "FlipEvent",
+        back_populates="stock",
+        cascade="all, delete-orphan",
+        order_by="FlipEvent.flipped_at.desc()",
+    )
 
 
 class Tag(Base):
@@ -849,3 +869,37 @@ class PrintJob(Base):
         "PrintAgent", back_populates="print_jobs", foreign_keys=[agent_id]
     )
     created_by: Mapped[Optional["User"]] = relationship("User")
+
+
+class FlipEvent(Base):
+    """Flip event model for tracking when stocks are transferred to fresh food.
+
+    Attributes:
+        id: Primary key UUID.
+        stock_id: FK to stock that was flipped.
+        flipped_by_id: FK to user who performed the flip.
+        flipped_at: When the flip was performed.
+        notes: Optional notes about the flip.
+        created_at: Record creation timestamp.
+    """
+
+    __tablename__ = "flip_events"
+    __table_args__ = (
+        Index("ix_flip_events_stock_id", "stock_id"),
+        Index("ix_flip_events_flipped_at", "flipped_at"),
+    )
+
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
+    stock_id: Mapped[str] = mapped_column(
+        CHAR(36), ForeignKey("stocks.id", ondelete="CASCADE"), nullable=False
+    )
+    flipped_by_id: Mapped[str | None] = mapped_column(
+        CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    flipped_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    # Relationships
+    stock: Mapped["Stock"] = relationship("Stock", back_populates="flip_events")
+    flipped_by: Mapped[Optional["User"]] = relationship("User")

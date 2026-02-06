@@ -82,6 +82,7 @@ class PrintJobCreate(BaseModel):
     label_format: str = Field("dymo_11352", description="Label format to use")
     copies: int = Field(1, ge=1, le=10, description="Copies per label")
     code_type: str = Field("qr", description="Code type: 'qr' or 'barcode'")
+    record_flip: bool = Field(False, description="Record a flip event for each stock")
 
 
 class PrintJobResponse(BaseModel):

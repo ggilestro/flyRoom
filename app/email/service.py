@@ -313,6 +313,101 @@ class EmailService:
         """
         return self.send_email(admin_email, subject, body_html)
 
+    def send_flip_reminder_email(
+        self,
+        to_email: str,
+        user_name: str,
+        stocks: list,
+        tenant_name: str,
+    ) -> bool:
+        """Send weekly flip reminder email with stocks needing attention.
+
+        Args:
+            to_email: Recipient email address.
+            user_name: Recipient's name.
+            stocks: List of StockFlipInfo objects needing attention.
+            tenant_name: Lab/tenant name.
+
+        Returns:
+            bool: True if sent successfully.
+        """
+        # Separate critical and warning stocks
+        critical_stocks = [s for s in stocks if s.flip_status.value == "critical"]
+        warning_stocks = [s for s in stocks if s.flip_status.value == "warning"]
+
+        # Build stock table HTML
+        def build_stock_row(stock, is_critical: bool) -> str:
+            status_color = "#dc2626" if is_critical else "#f59e0b"
+            status_text = "CRITICAL" if is_critical else "Warning"
+            days_text = (
+                f"{stock.days_since_flip} days ago"
+                if stock.days_since_flip is not None
+                else "Never"
+            )
+            return f"""
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+                <td style="padding: 12px 8px; color: {status_color}; font-weight: 600;">
+                    {status_text}
+                </td>
+                <td style="padding: 12px 8px; font-weight: 500;">
+                    {stock.stock_display_id}
+                </td>
+                <td style="padding: 12px 8px;">
+                    {days_text}
+                </td>
+            </tr>
+            """
+
+        stock_rows = ""
+        for stock in critical_stocks:
+            stock_rows += build_stock_row(stock, is_critical=True)
+        for stock in warning_stocks:
+            stock_rows += build_stock_row(stock, is_critical=False)
+
+        subject = f"{self.app_name}: {len(stocks)} stock(s) need flipping"
+        body_html = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <h2>Hello {user_name},</h2>
+            <p>This is your weekly reminder from {self.app_name} about stocks in <strong>{tenant_name}</strong> that need to be flipped to fresh food.</p>
+
+            <div style="margin: 24px 0; padding: 16px; background-color: #fef2f2; border-radius: 8px; border-left: 4px solid #dc2626;">
+                <p style="margin: 0; color: #991b1b;">
+                    <strong>{len(critical_stocks)} stock(s)</strong> are past the critical threshold and need immediate attention.
+                </p>
+            </div>
+
+            <div style="margin: 24px 0; padding: 16px; background-color: #fffbeb; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                <p style="margin: 0; color: #92400e;">
+                    <strong>{len(warning_stocks)} stock(s)</strong> are approaching the critical threshold.
+                </p>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; margin: 24px 0;">
+                <thead>
+                    <tr style="background-color: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                        <th style="padding: 12px 8px; text-align: left; font-weight: 600;">Status</th>
+                        <th style="padding: 12px 8px; text-align: left; font-weight: 600;">Stock ID</th>
+                        <th style="padding: 12px 8px; text-align: left; font-weight: 600;">Last Flipped</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {stock_rows}
+                </tbody>
+            </table>
+
+            <p>Please log in to {self.app_name} to flip these stocks and print new labels.</p>
+
+            <p style="color: #6b7280; font-size: 14px; margin-top: 32px;">
+                You can adjust flip reminder settings or disable these emails in the Settings page.
+            </p>
+
+            <p>Best regards,<br>The {self.app_name} Team</p>
+        </body>
+        </html>
+        """
+        return self.send_email(to_email, subject, body_html)
+
 
 # Singleton instance
 _email_service: EmailService | None = None

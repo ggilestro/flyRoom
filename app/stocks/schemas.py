@@ -123,6 +123,10 @@ class StockResponse(StockBase):
     hide_from_org: bool = False
     # For cross-lab visibility
     tenant: TenantInfo | None = None
+    # Flip tracking
+    flip_status: str | None = None  # ok, warning, critical, never
+    days_since_flip: int | None = None
+    last_flip_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -1,9 +1,12 @@
 """Stock service layer."""
 
+from datetime import datetime
+
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import (
+    FlipEvent,
     Stock,
     StockVisibility,
     Tag,
@@ -39,6 +42,9 @@ class StockService:
         self.tenant_id = tenant_id
         # Cache tenant's organization_id for visibility filtering
         self._org_id = None
+        # Cache flip settings
+        self._flip_warning_days = None
+        self._flip_critical_days = None
 
     @property
     def organization_id(self) -> str | None:
@@ -47,6 +53,57 @@ class StockService:
             tenant = self.db.query(Tenant).filter(Tenant.id == self.tenant_id).first()
             self._org_id = tenant.organization_id if tenant else ""
         return self._org_id if self._org_id else None
+
+    def _get_flip_settings(self) -> tuple[int, int]:
+        """Get flip warning and critical days settings (cached)."""
+        if self._flip_warning_days is None:
+            tenant = self.db.query(Tenant).filter(Tenant.id == self.tenant_id).first()
+            if tenant:
+                self._flip_warning_days = tenant.flip_warning_days
+                self._flip_critical_days = tenant.flip_critical_days
+            else:
+                self._flip_warning_days = 21
+                self._flip_critical_days = 31
+        return self._flip_warning_days, self._flip_critical_days
+
+    def _calculate_flip_status(
+        self, stock: Stock
+    ) -> tuple[str | None, int | None, datetime | None]:
+        """Calculate flip status for a stock.
+
+        Args:
+            stock: Stock model with flip_events loaded.
+
+        Returns:
+            Tuple of (flip_status, days_since_flip, last_flip_at).
+        """
+        # Check if flip_events relationship is loaded
+        if not hasattr(stock, "flip_events") or stock.flip_events is None:
+            # Load flip events if not loaded
+            last_flip = (
+                self.db.query(FlipEvent)
+                .filter(FlipEvent.stock_id == stock.id)
+                .order_by(FlipEvent.flipped_at.desc())
+                .first()
+            )
+        else:
+            last_flip = stock.flip_events[0] if stock.flip_events else None
+
+        if last_flip is None:
+            return "never", None, None
+
+        warning_days, critical_days = self._get_flip_settings()
+        now = datetime.utcnow()
+        days_since = (now - last_flip.flipped_at).days
+
+        if days_since >= critical_days:
+            status = "critical"
+        elif days_since >= warning_days:
+            status = "warning"
+        else:
+            status = "ok"
+
+        return status, days_since, last_flip.flipped_at
 
     def _stock_to_response(self, stock: Stock, include_tenant: bool = False) -> StockResponse:
         """Convert stock model to response schema.
@@ -75,6 +132,9 @@ class StockService:
                 country=stock.tenant.country,
             )
 
+        # Calculate flip status
+        flip_status, days_since_flip, last_flip_at = self._calculate_flip_status(stock)
+
         return StockResponse(
             id=stock.id,
             stock_id=stock.stock_id,
@@ -97,6 +157,9 @@ class StockService:
             visibility=stock.visibility,
             hide_from_org=stock.hide_from_org,
             tenant=tenant_info,
+            flip_status=flip_status,
+            days_since_flip=days_since_flip,
+            last_flip_at=last_flip_at,
         )
 
     def _build_visibility_filter(self, scope: StockScope):
@@ -157,6 +220,7 @@ class StockService:
                 joinedload(Stock.tray),
                 joinedload(Stock.owner),
                 joinedload(Stock.tenant),
+                joinedload(Stock.flip_events),
             )
             .filter(self._build_visibility_filter(params.scope))
             .filter(Stock.is_active == params.is_active)
@@ -238,6 +302,7 @@ class StockService:
                 joinedload(Stock.tray),
                 joinedload(Stock.owner),
                 joinedload(Stock.tenant),
+                joinedload(Stock.flip_events),
             )
             .filter(Stock.id == stock_id)
         )

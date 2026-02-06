@@ -70,7 +70,16 @@
             <div class="bg-white shadow rounded-lg p-6">
                 <div class="flex items-center justify-between mb-6">
                     <div>
-                        <h1 class="text-2xl font-semibold text-gray-900" x-text="stock.stock_id"></h1>
+                        <div class="flex items-center gap-3">
+                            <h1 class="text-2xl font-semibold text-gray-900" x-text="stock.stock_id"></h1>
+                            <!-- Flip Status Badge -->
+                            <span x-show="flipStatus"
+                                  class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                                  :class="getFlipStatusBadgeClass(flipStatus?.flip_status)">
+                                <span class="h-2 w-2 rounded-full" :class="getFlipStatusDotClass(flipStatus?.flip_status)"></span>
+                                <span x-text="getFlipStatusLabel(flipStatus?.flip_status, flipStatus?.days_since_flip)"></span>
+                            </span>
+                        </div>
                         <div class="mt-1 flex items-center space-x-2">
                             <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
                                   :class="getOriginBadgeClass(stock.origin)"
@@ -184,6 +193,26 @@
                             </template>
                         </div>
                         <p x-show="!stock.tags || stock.tags.length === 0" class="text-sm text-gray-500">No tags</p>
+                    </div>
+
+                    <!-- Flip History -->
+                    <div class="mt-6 pt-6 border-t border-gray-200">
+                        <h3 class="text-sm font-medium text-gray-500 mb-3">Flip History</h3>
+                        <template x-if="flipHistory.length > 0">
+                            <div class="space-y-2">
+                                <template x-for="flip in flipHistory" :key="flip.id">
+                                    <div class="flex items-center justify-between text-sm py-2 border-b border-gray-100 last:border-0">
+                                        <div class="flex items-center gap-2">
+                                            <span class="h-2 w-2 rounded-full bg-green-500"></span>
+                                            <span class="text-gray-900" x-text="formatDate(flip.flipped_at)"></span>
+                                            <span class="text-gray-500" x-show="flip.flipped_by_name">by <span x-text="flip.flipped_by_name"></span></span>
+                                        </div>
+                                        <span class="text-gray-400 text-xs" x-show="flip.notes" x-text="flip.notes"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <p x-show="flipHistory.length === 0" class="text-sm text-gray-500">No flip history yet. Click "Flip Stock & Print Label" to record a flip.</p>
                     </div>
                 </div>
 
@@ -404,6 +433,9 @@ function stockDetail() {
         printing: false,
         printSuccess: false,
         labelSettings: null,
+        // Flip tracking state
+        flipStatus: null,
+        flipHistory: [],
         editForm: {
             stock_id: '',
             genotype: '',
@@ -427,7 +459,9 @@ function stockDetail() {
                 this.loadUsers(),
                 this.loadTags(),
                 this.checkAgentStatus(),
-                this.loadLabelSettings()
+                this.loadLabelSettings(),
+                this.loadFlipStatus(),
+                this.loadFlipHistory()
             ]);
 
             // Watch for repository changes to reset fetched metadata
@@ -473,6 +507,7 @@ function stockDetail() {
             try {
                 if (this.hasOnlineAgent) {
                     // Create a print job for the agent - always 1 copy for single stock
+                    // Also record flip event
                     const response = await fetch('/api/labels/print', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -481,19 +516,23 @@ function stockDetail() {
                             stock_ids: [this.stock.id],
                             label_format: format,
                             copies: 1,
-                            code_type: codeType
+                            code_type: codeType,
+                            record_flip: true
                         })
                     });
 
                     if (response.ok) {
                         // Brief visual success feedback
                         this.printSuccess = true;
+                        // Reload flip status to show updated info
+                        await this.loadFlipStatus();
                         setTimeout(() => this.printSuccess = false, 2000);
                     } else {
                         throw new Error('Failed to create print job');
                     }
                 } else {
-                    // No agent - open PDF in new tab for manual printing
+                    // No agent - record flip manually then open PDF
+                    await this.recordFlip();
                     window.open(`/api/labels/stock/${this.stock.id}/pdf?format=${format}&code_type=${codeType}`, '_blank');
                 }
             } catch (error) {
@@ -506,6 +545,75 @@ function stockDetail() {
         clearRepositoryMetadata() {
             this.repositoryGenotype = null;
             this.repositoryMetadata = null;
+        },
+
+        async loadFlipStatus() {
+            try {
+                const response = await fetch(`/api/flips/stock/{{ stock_id }}/status`, {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    this.flipStatus = await response.json();
+                }
+            } catch (error) {
+                console.error('Error loading flip status:', error);
+            }
+        },
+
+        async loadFlipHistory() {
+            try {
+                const response = await fetch(`/api/flips/stock/{{ stock_id }}/history?limit=5`, {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    this.flipHistory = await response.json();
+                }
+            } catch (error) {
+                console.error('Error loading flip history:', error);
+            }
+        },
+
+        async recordFlip() {
+            try {
+                const response = await fetch('/api/flips/record', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ stock_id: this.stock.id })
+                });
+                if (response.ok) {
+                    await Promise.all([this.loadFlipStatus(), this.loadFlipHistory()]);
+                }
+            } catch (error) {
+                console.error('Error recording flip:', error);
+            }
+        },
+
+        getFlipStatusBadgeClass(status) {
+            const classes = {
+                'ok': 'bg-green-100 text-green-800',
+                'warning': 'bg-yellow-100 text-yellow-800',
+                'critical': 'bg-red-100 text-red-800',
+                'never': 'bg-gray-100 text-gray-600'
+            };
+            return classes[status] || 'bg-gray-100 text-gray-600';
+        },
+
+        getFlipStatusDotClass(status) {
+            const classes = {
+                'ok': 'bg-green-500',
+                'warning': 'bg-yellow-500',
+                'critical': 'bg-red-500',
+                'never': 'bg-gray-400'
+            };
+            return classes[status] || 'bg-gray-400';
+        },
+
+        getFlipStatusLabel(status, daysSince) {
+            if (status === 'never') return 'Never flipped';
+            if (daysSince === 0) return 'Flipped today';
+            if (daysSince === 1) return 'Flipped yesterday';
+            return `${daysSince} days since flip`;
         },
 
         async fetchRepositoryMetadata() {

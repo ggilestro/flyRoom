@@ -1,10 +1,13 @@
 """Tray service layer."""
 
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from datetime import UTC, datetime
 
-from app.db.models import Stock, Tray, TrayType
+from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload
+
+from app.db.models import Stock, Tenant, Tray, TrayType
 from app.trays.schemas import (
+    FlipStatusCounts,
     TrayCreate,
     TrayDetailResponse,
     TrayListResponse,
@@ -28,6 +31,62 @@ class TrayService:
         self.db = db
         self.tenant_id = tenant_id
 
+    def _get_flip_settings(self) -> tuple[int, int]:
+        """Get flip warning and critical thresholds.
+
+        Returns:
+            tuple[int, int]: (warning_days, critical_days)
+        """
+        tenant = self.db.query(Tenant).filter(Tenant.id == self.tenant_id).first()
+        if tenant:
+            return tenant.flip_warning_days, tenant.flip_critical_days
+        return 21, 31  # Defaults
+
+    def _calculate_flip_counts(self, tray_id: str) -> FlipStatusCounts:
+        """Calculate flip status counts for stocks in a tray.
+
+        Args:
+            tray_id: Tray UUID.
+
+        Returns:
+            FlipStatusCounts: Counts by status.
+        """
+        warning_days, critical_days = self._get_flip_settings()
+        now = datetime.now(UTC)
+
+        # Get all active stocks in this tray with their flip events
+        stocks = (
+            self.db.query(Stock)
+            .options(joinedload(Stock.flip_events))
+            .filter(Stock.tray_id == tray_id, Stock.is_active)
+            .all()
+        )
+
+        counts = FlipStatusCounts()
+
+        for stock in stocks:
+            # Get most recent flip event
+            if not stock.flip_events:
+                counts.never += 1
+                continue
+
+            # flip_events should be ordered by flipped_at desc
+            last_flip = max(stock.flip_events, key=lambda e: e.flipped_at)
+            # Handle timezone-naive datetime from DB
+            flipped_at = last_flip.flipped_at
+            if flipped_at.tzinfo is None:
+                flipped_at = flipped_at.replace(tzinfo=UTC)
+            days_since = (now - flipped_at).days
+
+            if days_since >= critical_days:
+                counts.critical += 1
+            elif days_since >= warning_days:
+                counts.warning += 1
+            else:
+                counts.ok += 1
+
+        return counts
+
     def _tray_to_response(self, tray: Tray) -> TrayResponse:
         """Convert tray model to response schema.
 
@@ -42,6 +101,8 @@ class TrayService:
             .filter(Stock.tray_id == tray.id, Stock.is_active)
             .scalar()
         )
+        flip_counts = self._calculate_flip_counts(tray.id)
+
         return TrayResponse(
             id=tray.id,
             name=tray.name,
@@ -52,6 +113,7 @@ class TrayService:
             cols=tray.cols,
             created_at=tray.created_at,
             stock_count=stock_count,
+            flip_counts=flip_counts,
         )
 
     def list_trays(self, page: int = 1, page_size: int = 20) -> TrayListResponse:

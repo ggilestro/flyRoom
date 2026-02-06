@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     smtp_from_name: str = "flyPush"
     smtp_use_tls: bool = True
 
+    # Cron/scheduler settings
+    cron_secret_key: str = ""  # Secret key for cron endpoints (empty = no auth)
+
 
 @lru_cache
 def get_settings() -> Settings:

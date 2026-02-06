@@ -65,6 +65,7 @@ templates.env.globals["app_name"] = settings.app_name
 # Import and include routers
 from app.auth.router import router as auth_router
 from app.crosses.router import router as crosses_router
+from app.flips.router import router as flips_router
 from app.imports.router import router as imports_router
 from app.labels.router import router as labels_router
 from app.organizations.router import router as organizations_router
@@ -87,6 +88,7 @@ app.include_router(organizations_router, prefix="/api/organizations", tags=["org
 app.include_router(trays_router, prefix="/api/trays", tags=["trays"])
 app.include_router(requests_router, prefix="/api/requests", tags=["requests"])
 app.include_router(tags_router, prefix="/api/tags", tags=["tags"])
+app.include_router(flips_router, prefix="/api/flips", tags=["flips"])
 
 
 def get_current_user_from_cookie(

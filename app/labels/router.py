@@ -585,18 +585,34 @@ async def check_agents_online(
 async def create_print_job(
     data: PrintJobCreate,
     svc: Annotated[PrintService, Depends(get_print_svc)],
+    db: Annotated[Session, Depends(get_db)],
+    tenant_id: CurrentTenantId,
+    user_id: CurrentUserId,
 ):
     """Create a new print job.
 
     The job will be picked up by an available print agent.
+    Optionally records a flip event for each stock if record_flip is True.
 
     Args:
         data: Job creation data.
         svc: Print service.
+        db: Database session.
+        tenant_id: Current tenant ID.
+        user_id: Current user ID.
 
     Returns:
         PrintJobResponse: Created job.
     """
+    # Record flip events if requested
+    if data.record_flip:
+        from app.flips.schemas import FlipEventCreate
+        from app.flips.service import get_flip_service
+
+        flip_service = get_flip_service(db, str(tenant_id), str(user_id) if user_id else None)
+        for stock_id in data.stock_ids:
+            flip_service.record_flip(FlipEventCreate(stock_id=stock_id))
+
     job = svc.create_job(data)
     return PrintJobResponse.model_validate(job)
 

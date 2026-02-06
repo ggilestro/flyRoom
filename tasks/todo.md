@@ -1,3 +1,79 @@
+# Stock Flip Tracking Feature
+
+## Current Task
+Track when fly stocks are "flipped" (transferred to fresh food) to prevent stock death. Includes visual indicators, history logging, and weekly email reminders.
+
+**Date Started:** 2026-02-06
+**Date Completed:** 2026-02-06
+**Status:** Complete
+
+## Implementation Summary
+
+### Database Changes
+- Added `FlipEvent` model to track flip history (stock_id, flipped_by_id, flipped_at, notes)
+- Added flip settings to `Tenant` model (flip_warning_days, flip_critical_days, flip_reminder_enabled)
+- Created migration `008_add_flip_tracking.py`
+
+### New Module: app/flips/
+- `schemas.py`: FlipStatus enum, FlipEventCreate/Response, StockFlipInfo, FlipSettings schemas
+- `service.py`: FlipService with record_flip, get_history, calculate_status, get_stocks_needing_flip
+- `router.py`: API endpoints for flip operations
+
+### API Endpoints
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/flips/record` | Record a flip event |
+| GET | `/api/flips/stock/{id}/history` | Get flip history |
+| GET | `/api/flips/stock/{id}/status` | Get flip status |
+| GET | `/api/flips/needing-flip` | Get stocks needing flip |
+| GET | `/api/flips/settings` | Get flip settings |
+| PUT | `/api/flips/settings` | Update settings (admin) |
+| POST | `/api/flips/send-reminders` | Trigger emails (cron) |
+
+### Frontend Changes
+- Stock detail page: Flip status badge, flip history section, "Flip Stock & Print Label" records flip
+- Stock list page: Status dot column (green/yellow/red/gray) with tooltips
+- Settings page: Flip Tracking Settings section (admin only) for thresholds and reminders
+
+### Stocks API Integration
+- Added flip_status, days_since_flip, last_flip_at fields to StockResponse
+- Updated StockService to calculate and include flip status
+
+### Email Notifications
+- Added `send_flip_reminder_email()` to EmailService
+- Created `app/scheduler/flip_reminders.py` for weekly reminder processing
+- Cron endpoint with secret key authentication
+
+## Test Results
+- 27 unit tests for flip service and API
+- All 302 tests pass
+
+## Files Created
+- `app/flips/__init__.py`
+- `app/flips/schemas.py`
+- `app/flips/service.py`
+- `app/flips/router.py`
+- `app/scheduler/__init__.py`
+- `app/scheduler/flip_reminders.py`
+- `alembic/versions/008_add_flip_tracking.py`
+- `tests/test_flips/__init__.py`
+- `tests/test_flips/test_flip_service.py`
+
+## Files Modified
+- `app/db/models.py` - FlipEvent model, Tenant flip settings
+- `app/main.py` - Registered flips router
+- `app/config.py` - Added cron_secret_key
+- `app/labels/schemas.py` - Added record_flip to PrintJobCreate
+- `app/labels/router.py` - Record flip when printing
+- `app/stocks/schemas.py` - Added flip fields to StockResponse
+- `app/stocks/service.py` - Calculate flip status
+- `app/email/service.py` - Flip reminder email template
+- `app/templates/stocks/detail.html` - Flip status badge and history
+- `app/templates/stocks/list.html` - Status dot column
+- `app/templates/settings.html` - Flip settings section
+
+---
+
 # Label Content Enhancement: QR vs Barcode Support
 
 ## Current Task
