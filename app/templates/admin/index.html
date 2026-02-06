@@ -130,6 +130,241 @@
             </div>
         </template>
     </div>
+
+    <!-- Backup & Restore Section -->
+    <div class="bg-white shadow rounded-lg p-6" x-data="backupRestore()">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Backup & Restore</h2>
+        <p class="text-sm text-gray-600 mb-6">Export your lab's data for backup or import from a previous backup.</p>
+
+        <!-- Status Messages -->
+        <template x-if="message">
+            <div class="mb-4 rounded-md p-4" :class="messageType === 'success' ? 'bg-green-50' : messageType === 'error' ? 'bg-red-50' : 'bg-blue-50'">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <template x-if="messageType === 'success'">
+                            <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                        </template>
+                        <template x-if="messageType === 'error'">
+                            <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                            </svg>
+                        </template>
+                        <template x-if="messageType === 'info'">
+                            <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                            </svg>
+                        </template>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm" :class="messageType === 'success' ? 'text-green-800' : messageType === 'error' ? 'text-red-800' : 'text-blue-800'" x-text="message"></p>
+                    </div>
+                    <div class="ml-auto pl-3">
+                        <button @click="message = ''" class="-mx-1.5 -my-1.5 rounded-md p-1.5" :class="messageType === 'success' ? 'text-green-500 hover:bg-green-100' : messageType === 'error' ? 'text-red-500 hover:bg-red-100' : 'text-blue-500 hover:bg-blue-100'">
+                            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Export Section -->
+            <div class="border border-gray-200 rounded-lg p-4">
+                <h3 class="text-md font-medium text-gray-900 mb-2">Export Backup</h3>
+                <p class="text-sm text-gray-500 mb-4">Download a complete backup of your lab's data including stocks, crosses, users, and settings.</p>
+                <button @click="exportBackup()" :disabled="exporting"
+                        class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <template x-if="!exporting">
+                        <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                    </template>
+                    <template x-if="exporting">
+                        <svg class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </template>
+                    <span x-text="exporting ? 'Exporting...' : 'Download Backup'"></span>
+                </button>
+            </div>
+
+            <!-- Import Section -->
+            <div class="border border-gray-200 rounded-lg p-4">
+                <h3 class="text-md font-medium text-gray-900 mb-2">Import Backup</h3>
+                <p class="text-sm text-gray-500 mb-4">Restore data from a previously exported backup file.</p>
+
+                <div class="space-y-4">
+                    <!-- File Input -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Backup File</label>
+                        <input type="file" accept=".json" @change="handleFileSelect($event)"
+                               class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    </div>
+
+                    <!-- Conflict Mode -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">If records already exist</label>
+                        <select x-model="conflictMode" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                            <option value="fail">Stop import (safest)</option>
+                            <option value="skip">Skip existing records</option>
+                            <option value="overwrite">Overwrite existing records</option>
+                        </select>
+                    </div>
+
+                    <!-- Dry Run Toggle -->
+                    <div class="flex items-center">
+                        <input type="checkbox" x-model="dryRun" id="dry-run"
+                               class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <label for="dry-run" class="ml-2 block text-sm text-gray-700">
+                            Dry run (validate without importing)
+                        </label>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex gap-2">
+                        <button @click="validateBackup()" :disabled="!selectedFile || validating"
+                                class="inline-flex items-center rounded-md bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <template x-if="validating">
+                                <svg class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </template>
+                            <span x-text="validating ? 'Validating...' : 'Validate'"></span>
+                        </button>
+                        <button @click="importBackup()" :disabled="!selectedFile || importing"
+                                class="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <template x-if="importing">
+                                <svg class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </template>
+                            <span x-text="importing ? 'Importing...' : (dryRun ? 'Test Import' : 'Import')"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Validation Results -->
+        <template x-if="validationResult">
+            <div class="mt-6 border border-gray-200 rounded-lg p-4">
+                <h3 class="text-md font-medium text-gray-900 mb-3">Validation Results</h3>
+                <div class="space-y-2 text-sm">
+                    <div class="flex items-center">
+                        <span class="font-medium w-32">Status:</span>
+                        <span :class="validationResult.is_valid ? 'text-green-600' : 'text-red-600'" x-text="validationResult.is_valid ? 'Valid' : 'Invalid'"></span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="font-medium w-32">Schema Version:</span>
+                        <span x-text="validationResult.schema_version"></span>
+                        <span class="ml-2" :class="validationResult.schema_compatible ? 'text-green-600' : 'text-red-600'" x-text="validationResult.schema_compatible ? '(compatible)' : '(incompatible)'"></span>
+                    </div>
+                    <div>
+                        <span class="font-medium">Record Counts:</span>
+                        <div class="mt-1 grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <template x-for="(count, table) in validationResult.record_counts" :key="table">
+                                <div class="bg-gray-50 rounded px-2 py-1">
+                                    <span class="text-gray-600" x-text="table + ': '"></span>
+                                    <span class="font-medium" x-text="count"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    <template x-if="validationResult.warnings && validationResult.warnings.length > 0">
+                        <div>
+                            <span class="font-medium text-yellow-600">Warnings:</span>
+                            <ul class="mt-1 list-disc list-inside text-yellow-700">
+                                <template x-for="warning in validationResult.warnings" :key="warning">
+                                    <li x-text="warning"></li>
+                                </template>
+                            </ul>
+                        </div>
+                    </template>
+                    <template x-if="validationResult.errors && validationResult.errors.length > 0">
+                        <div>
+                            <span class="font-medium text-red-600">Errors:</span>
+                            <ul class="mt-1 list-disc list-inside text-red-700">
+                                <template x-for="error in validationResult.errors" :key="error">
+                                    <li x-text="error"></li>
+                                </template>
+                            </ul>
+                        </div>
+                    </template>
+                    <template x-if="validationResult.conflicts && validationResult.conflicts.length > 0">
+                        <div>
+                            <span class="font-medium text-orange-600">Conflicts (<span x-text="validationResult.conflicts.length"></span>):</span>
+                            <ul class="mt-1 list-disc list-inside text-orange-700 max-h-32 overflow-y-auto">
+                                <template x-for="conflict in validationResult.conflicts.slice(0, 10)" :key="conflict.record_id">
+                                    <li x-text="conflict.message"></li>
+                                </template>
+                                <template x-if="validationResult.conflicts.length > 10">
+                                    <li class="italic">... and <span x-text="validationResult.conflicts.length - 10"></span> more</li>
+                                </template>
+                            </ul>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <!-- Import Results -->
+        <template x-if="importResult">
+            <div class="mt-6 border border-gray-200 rounded-lg p-4">
+                <h3 class="text-md font-medium text-gray-900 mb-3">
+                    <span x-text="importResult.dry_run ? 'Dry Run Results' : 'Import Results'"></span>
+                </h3>
+                <div class="space-y-2 text-sm">
+                    <div class="flex items-center">
+                        <span class="font-medium w-32">Status:</span>
+                        <span :class="importResult.success ? 'text-green-600' : 'text-red-600'" x-text="importResult.success ? 'Success' : 'Failed'"></span>
+                    </div>
+                    <template x-if="Object.keys(importResult.records_imported || {}).length > 0">
+                        <div>
+                            <span class="font-medium">Records Imported:</span>
+                            <div class="mt-1 grid grid-cols-2 md:grid-cols-4 gap-2">
+                                <template x-for="(count, table) in importResult.records_imported" :key="table">
+                                    <div class="bg-green-50 rounded px-2 py-1" x-show="count > 0">
+                                        <span class="text-gray-600" x-text="table + ': '"></span>
+                                        <span class="font-medium text-green-700" x-text="count"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                    <template x-if="Object.keys(importResult.records_skipped || {}).some(k => importResult.records_skipped[k] > 0)">
+                        <div>
+                            <span class="font-medium">Records Skipped:</span>
+                            <div class="mt-1 grid grid-cols-2 md:grid-cols-4 gap-2">
+                                <template x-for="(count, table) in importResult.records_skipped" :key="table">
+                                    <div class="bg-yellow-50 rounded px-2 py-1" x-show="count > 0">
+                                        <span class="text-gray-600" x-text="table + ': '"></span>
+                                        <span class="font-medium text-yellow-700" x-text="count"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                    <template x-if="importResult.errors && importResult.errors.length > 0">
+                        <div>
+                            <span class="font-medium text-red-600">Errors:</span>
+                            <ul class="mt-1 list-disc list-inside text-red-700">
+                                <template x-for="error in importResult.errors" :key="error">
+                                    <li x-text="error"></li>
+                                </template>
+                            </ul>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
 </div>
 
 <script>
@@ -255,6 +490,152 @@ function teamMembers() {
                 console.error('Error loading team members:', error);
             } finally {
                 this.loading = false;
+            }
+        }
+    }
+}
+
+function backupRestore() {
+    return {
+        exporting: false,
+        importing: false,
+        validating: false,
+        selectedFile: null,
+        conflictMode: 'fail',
+        dryRun: false,
+        message: '',
+        messageType: 'info',
+        validationResult: null,
+        importResult: null,
+
+        handleFileSelect(event) {
+            this.selectedFile = event.target.files[0];
+            this.validationResult = null;
+            this.importResult = null;
+            this.message = '';
+        },
+
+        async exportBackup() {
+            this.exporting = true;
+            this.message = '';
+            try {
+                const response = await fetch('/api/admin/backup/export', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    let filename = 'backup.json';
+                    if (contentDisposition) {
+                        const match = contentDisposition.match(/filename="(.+)"/);
+                        if (match) filename = match[1];
+                    }
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                    this.message = 'Backup downloaded successfully';
+                    this.messageType = 'success';
+                } else {
+                    const error = await response.json();
+                    this.message = error.detail || 'Export failed';
+                    this.messageType = 'error';
+                }
+            } catch (error) {
+                console.error('Export error:', error);
+                this.message = 'Export failed: ' + error.message;
+                this.messageType = 'error';
+            } finally {
+                this.exporting = false;
+            }
+        },
+
+        async validateBackup() {
+            if (!this.selectedFile) return;
+            this.validating = true;
+            this.message = '';
+            this.validationResult = null;
+            try {
+                const formData = new FormData();
+                formData.append('file', this.selectedFile);
+                const response = await fetch('/api/admin/backup/validate', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+                if (response.ok) {
+                    this.validationResult = await response.json();
+                    if (this.validationResult.is_valid) {
+                        this.message = 'Backup file is valid and ready to import';
+                        this.messageType = 'success';
+                    } else {
+                        this.message = 'Backup file has validation errors';
+                        this.messageType = 'error';
+                    }
+                } else {
+                    const error = await response.json();
+                    this.message = error.detail || 'Validation failed';
+                    this.messageType = 'error';
+                }
+            } catch (error) {
+                console.error('Validation error:', error);
+                this.message = 'Validation failed: ' + error.message;
+                this.messageType = 'error';
+            } finally {
+                this.validating = false;
+            }
+        },
+
+        async importBackup() {
+            if (!this.selectedFile) return;
+            if (!this.dryRun && !confirm('Are you sure you want to import this backup? This will add or modify data in your database.')) {
+                return;
+            }
+            this.importing = true;
+            this.message = '';
+            this.importResult = null;
+            try {
+                const formData = new FormData();
+                formData.append('file', this.selectedFile);
+                formData.append('conflict_mode', this.conflictMode);
+                formData.append('dry_run', this.dryRun);
+                const response = await fetch('/api/admin/backup/import', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+                if (response.ok) {
+                    this.importResult = await response.json();
+                    if (this.importResult.success) {
+                        if (this.importResult.dry_run) {
+                            this.message = 'Dry run completed successfully - no changes were made';
+                        } else {
+                            this.message = 'Backup imported successfully';
+                        }
+                        this.messageType = 'success';
+                    } else {
+                        this.message = 'Import completed with errors';
+                        this.messageType = 'error';
+                    }
+                } else {
+                    const error = await response.json();
+                    this.message = typeof error.detail === 'string' ? error.detail : (error.detail?.message || 'Import failed');
+                    this.messageType = 'error';
+                    if (error.detail?.errors) {
+                        this.importResult = { success: false, errors: error.detail.errors };
+                    }
+                }
+            } catch (error) {
+                console.error('Import error:', error);
+                this.message = 'Import failed: ' + error.message;
+                this.messageType = 'error';
+            } finally {
+                this.importing = false;
             }
         }
     }
