@@ -36,16 +36,17 @@
                         <input id="search"
                                name="search"
                                class="block w-full rounded-md border-0 bg-gray-50 py-1.5 pl-10 pr-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6"
-                               placeholder="Search stocks..."
+                               placeholder="Search or scan barcode..."
                                type="search"
                                autocomplete="off"
                                hx-get="/api/stocks/search"
-                               hx-trigger="input changed delay:300ms, search"
+                               hx-trigger="input changed delay:300ms, keydown[key=='Enter'] changed"
                                hx-target="#search-results"
                                @htmx:after-swap.window="showResults = document.getElementById('search-results').innerHTML.trim() !== ''"
                                @input="if ($event.target.value.length < 2) showResults = false"
                                @focus="if (document.getElementById('search-results').innerHTML.trim() !== '') showResults = true"
-                               @keydown.escape="showResults = false; $event.target.blur()">
+                               @keydown.escape="showResults = false; $event.target.blur()"
+                               @keydown.enter.prevent>
                     </div>
                     <!-- Search results dropdown -->
                     <div id="search-results"

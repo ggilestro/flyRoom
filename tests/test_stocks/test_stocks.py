@@ -207,6 +207,25 @@ class TestSearchStocksHTML:
         assert response.status_code == 200
         assert "No stocks found" in response.text
 
+    def test_search_exact_match_redirects(
+        self, authenticated_client: TestClient, test_stock: Stock
+    ):
+        """Test that exact stock_id match returns HX-Redirect header."""
+        response = authenticated_client.get("/api/stocks/search?search=BL-1234")
+
+        assert response.status_code == 200
+        assert "HX-Redirect" in response.headers
+        assert f"/stocks/{test_stock.id}" in response.headers["HX-Redirect"]
+
+    def test_search_exact_match_case_insensitive(
+        self, authenticated_client: TestClient, test_stock: Stock
+    ):
+        """Test that exact match is case insensitive."""
+        response = authenticated_client.get("/api/stocks/search?search=bl-1234")
+
+        assert response.status_code == 200
+        assert "HX-Redirect" in response.headers
+
 
 class TestTags:
     """Tests for tag operations."""

@@ -165,13 +165,17 @@ async def search_stocks_html(
 ):
     """Search stocks and return HTML for HTMX dropdown.
 
+    If there's exactly one result with an exact stock_id match,
+    returns HX-Redirect header to navigate directly to that stock.
+    This enables barcode scanner workflow where scanning auto-navigates.
+
     Args:
         request: FastAPI request object.
         service: Stock service.
         search: Search query string.
 
     Returns:
-        HTMLResponse: Rendered search results partial.
+        HTMLResponse: Rendered search results partial, or redirect for exact match.
     """
     query = search.strip()
     if not query or len(query) < 2:
@@ -186,6 +190,16 @@ async def search_stocks_html(
         page_size=limit,
     )
     result = service.list_stocks(params)
+
+    # Check for exact match - if single result with exact stock_id, redirect
+    if result.total == 1 and len(result.items) == 1:
+        stock = result.items[0]
+        if stock.stock_id.lower() == query.lower():
+            # Exact match - redirect directly to stock page
+            return HTMLResponse(
+                content="",
+                headers={"HX-Redirect": f"/stocks/{stock.id}"},
+            )
 
     return templates.TemplateResponse(
         request,
