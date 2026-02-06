@@ -202,6 +202,10 @@ class BackupService:
         # Get existing IDs for conflict detection
         existing_ids = self._get_existing_ids(tenant_id)
 
+        # Track ID mappings for skipped records (backup_id -> existing_id)
+        # Used to remap foreign key references when records are skipped
+        id_mappings: dict[str, str] = {}
+
         try:
             # Import in dependency order
             for table in IMPORT_ORDER:
@@ -209,18 +213,20 @@ class BackupService:
                     continue
 
                 records = data[table]
-                imported, skipped, overwritten, table_errors = self._import_table(
+                imported, skipped, overwritten, table_errors, mappings = self._import_table(
                     table=table,
                     records=records,
                     tenant_id=tenant_id,
                     existing_ids=existing_ids,
                     conflict_mode=conflict_mode,
+                    id_mappings=id_mappings,
                 )
 
                 records_imported[table] = imported
                 records_skipped[table] = skipped
                 records_overwritten[table] = overwritten
                 errors.extend(table_errors)
+                id_mappings.update(mappings)
 
                 if table_errors and conflict_mode == ConflictMode.FAIL:
                     break
@@ -291,7 +297,31 @@ class BackupService:
                             table=table,
                             record_id=record_id,
                             issue_type="duplicate_id",
-                            message=f"Record with ID '{record_id}' already exists",
+                            message=(
+                                f"{table} record with ID '{record_id}' already exists. "
+                                f"Use 'skip' mode to skip duplicates or 'overwrite' mode to replace them."
+                            ),
+                        )
+                    )
+
+        # Check email uniqueness for users (tenant_id + email is unique)
+        if "users" in data:
+            existing_emails = {
+                u.email for u in self.db.query(User.email).filter(User.tenant_id == tenant_id).all()
+            }
+            for record in data["users"]:
+                email = record.get("email")
+                if email and email in existing_emails:
+                    conflicts.append(
+                        ValidationIssue(
+                            table="users",
+                            record_id=record.get("id"),
+                            issue_type="duplicate_email",
+                            message=(
+                                f"User with email '{email}' already exists in this tenant. "
+                                f"Use 'skip' mode to skip this user and remap their records, "
+                                f"or 'overwrite' mode to replace the existing user."
+                            ),
                         )
                     )
 
@@ -309,7 +339,10 @@ class BackupService:
                             table="stocks",
                             record_id=record.get("id"),
                             issue_type="duplicate_stock_id",
-                            message=f"Stock ID '{stock_id}' already exists in this tenant",
+                            message=(
+                                f"Stock ID '{stock_id}' already exists in this tenant. "
+                                f"Use 'skip' mode to skip duplicates or 'overwrite' mode to replace them."
+                            ),
                         )
                     )
 
@@ -450,7 +483,8 @@ class BackupService:
         tenant_id: str,
         existing_ids: dict[str, set[str]],
         conflict_mode: ConflictMode,
-    ) -> tuple[int, int, int, list[str]]:
+        id_mappings: dict[str, str],
+    ) -> tuple[int, int, int, list[str], dict[str, str]]:
         """Import records for a single table.
 
         Args:
@@ -459,31 +493,73 @@ class BackupService:
             tenant_id: Target tenant ID.
             existing_ids: Existing IDs by table.
             conflict_mode: How to handle conflicts.
+            id_mappings: Existing ID mappings from previous tables (backup_id -> existing_id).
 
         Returns:
-            Tuple of (imported, skipped, overwritten, errors).
+            Tuple of (imported, skipped, overwritten, errors, new_mappings).
         """
         imported = 0
         skipped = 0
         overwritten = 0
         errors = []
+        new_mappings: dict[str, str] = {}
 
         existing = existing_ids.get(table, set())
+
+        # For users table, also track existing emails to handle unique constraint
+        existing_emails: dict[str, str] = {}
+        if table == "users":
+            existing_user_emails = (
+                self.db.query(User.id, User.email).filter(User.tenant_id == tenant_id).all()
+            )
+            existing_emails = {email: user_id for user_id, email in existing_user_emails}
 
         for record in records:
             record_id = record.get("id")
             is_conflict = record_id and record_id in existing
 
+            # Check for email conflict in users table
+            email_conflict_user_id = None
+            if table == "users" and not is_conflict:
+                email = record.get("email")
+                if email and email in existing_emails:
+                    email_conflict_user_id = existing_emails[email]
+                    is_conflict = True
+
             if is_conflict:
                 if conflict_mode == ConflictMode.FAIL:
-                    errors.append(f"Conflict: {table} record '{record_id}' already exists")
-                    return imported, skipped, overwritten, errors
+                    if email_conflict_user_id:
+                        errors.append(
+                            f"Import stopped: User with email '{record.get('email')}' already exists "
+                            f"(existing user ID: '{email_conflict_user_id}'). "
+                            f"\n\nTo resolve this:\n"
+                            f"• Use 'skip' mode to skip duplicate users and import other data "
+                            f"(foreign keys will be automatically remapped)\n"
+                            f"• Use 'overwrite' mode to replace existing users with backup data"
+                        )
+                    else:
+                        errors.append(
+                            f"Import stopped: {table} record '{record_id}' already exists. "
+                            f"Use 'skip' mode to skip duplicates or 'overwrite' mode to replace them."
+                        )
+                    return imported, skipped, overwritten, errors, new_mappings
                 elif conflict_mode == ConflictMode.SKIP:
                     skipped += 1
+                    # Track the mapping so foreign key references can be remapped
+                    existing_record_id = (
+                        email_conflict_user_id if email_conflict_user_id else record_id
+                    )
+                    if record_id and existing_record_id:
+                        new_mappings[record_id] = existing_record_id
                     continue
                 elif conflict_mode == ConflictMode.OVERWRITE:
-                    self._delete_existing(table, record_id)
+                    # Delete the existing record (by ID or by email conflict)
+                    delete_id = email_conflict_user_id if email_conflict_user_id else record_id
+                    self._delete_existing(table, delete_id)
                     overwritten += 1
+
+            # Remap foreign key references based on previous ID mappings
+            record = self._remap_foreign_keys(table, record, id_mappings)
 
             try:
                 model = self._deserialize_record(table, record, tenant_id)
@@ -493,12 +569,90 @@ class BackupService:
                     imported += 1
                     if record_id:
                         existing.add(record_id)
+                    # Track email for future conflict detection
+                    if table == "users" and record.get("email"):
+                        existing_emails[record["email"]] = record_id
             except Exception as e:
                 errors.append(f"Failed to import {table} record '{record_id}': {str(e)}")
                 if conflict_mode == ConflictMode.FAIL:
-                    return imported, skipped, overwritten, errors
+                    return imported, skipped, overwritten, errors, new_mappings
 
-        return imported, skipped, overwritten, errors
+        return imported, skipped, overwritten, errors, new_mappings
+
+    def _remap_foreign_keys(self, table: str, record: dict, id_mappings: dict[str, str]) -> dict:
+        """Remap foreign key references based on ID mappings from skipped records.
+
+        Args:
+            table: Table name.
+            record: Record dict.
+            id_mappings: Mappings from backup IDs to existing IDs.
+
+        Returns:
+            Record dict with remapped foreign keys.
+        """
+        if not id_mappings:
+            return record
+
+        # Make a copy to avoid modifying the original
+        record = record.copy()
+
+        # Define ALL foreign key fields that reference users across all tables
+        user_fk_fields = [
+            "owner_id",
+            "created_by_id",
+            "modified_by_id",
+            "flipped_by_id",
+            "requested_by_id",
+            "responded_by_id",
+            "requester_user_id",
+        ]
+
+        # Remap user foreign keys
+        for field in user_fk_fields:
+            if field in record and record[field] and record[field] in id_mappings:
+                old_id = record[field]
+                new_id = id_mappings[old_id]
+                record[field] = new_id
+                logger.debug(f"Remapped {table}.{field}: {old_id} -> {new_id}")
+
+        # For crosses, remap parent and offspring stock references
+        if table == "crosses":
+            stock_fk_fields = ["parent_female_id", "parent_male_id", "offspring_id"]
+            for field in stock_fk_fields:
+                if field in record and record[field] and record[field] in id_mappings:
+                    old_id = record[field]
+                    new_id = id_mappings[old_id]
+                    record[field] = new_id
+                    logger.debug(f"Remapped {table}.{field}: {old_id} -> {new_id}")
+
+        # For stock_tags, remap stock and tag references
+        if table == "stock_tags":
+            if "stock_id" in record and record["stock_id"] in id_mappings:
+                record["stock_id"] = id_mappings[record["stock_id"]]
+            if "tag_id" in record and record["tag_id"] in id_mappings:
+                record["tag_id"] = id_mappings[record["tag_id"]]
+
+        # For external_references, remap stock reference
+        if table == "external_references":
+            if "stock_id" in record and record["stock_id"] in id_mappings:
+                record["stock_id"] = id_mappings[record["stock_id"]]
+
+        # For flip_events, remap stock reference
+        if table == "flip_events":
+            if "stock_id" in record and record["stock_id"] in id_mappings:
+                record["stock_id"] = id_mappings[record["stock_id"]]
+
+        # For stocks, remap tray reference
+        if table == "stocks":
+            if "tray_id" in record and record["tray_id"] and record["tray_id"] in id_mappings:
+                record["tray_id"] = id_mappings[record["tray_id"]]
+
+        # For print_jobs, remap agent reference
+        if table == "print_jobs":
+            if "agent_id" in record and record["agent_id"] and record["agent_id"] in id_mappings:
+                record["agent_id"] = id_mappings[record["agent_id"]]
+
+        return record
 
     def _deserialize_record(self, table: str, record: dict, tenant_id: str) -> Any:
         """Deserialize a record dict to model.
