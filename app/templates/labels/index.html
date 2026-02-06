@@ -1,74 +1,235 @@
 {% extends "base.html" %}
 
+{% block head %}
+<!-- Print.js for direct printing -->
+<link rel="stylesheet" href="https://printjs-4de6.kxcdn.com/print.min.css">
+<script src="https://printjs-4de6.kxcdn.com/print.min.js"></script>
+{% endblock %}
+
 {% block content %}
 <div class="mb-6">
     <h1 class="text-2xl font-semibold text-gray-900">Labels</h1>
     <p class="mt-1 text-sm text-gray-500">Generate and print labels for your stocks</p>
 </div>
 
-<div class="bg-white shadow rounded-lg p-6" x-data="labelsPage()" x-init="loadStocks()">
-    <div class="mb-6">
-        <h2 class="text-lg font-medium text-gray-900 mb-4">Generate Labels</h2>
-        <p class="text-sm text-gray-600 mb-4">Select stocks to generate QR code or barcode labels for printing.</p>
+<div class="bg-white shadow rounded-lg p-6" x-data="labelsPage()" x-init="init()">
+    <!-- Agent Status Banner -->
+    <div x-show="hasOnlineAgent" class="mb-4 bg-green-50 border border-green-200 rounded-md p-3 flex items-center justify-between">
+        <div class="flex items-center">
+            <span class="h-2 w-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+            <span class="text-sm text-green-700">Print agent online - labels will print automatically</span>
+        </div>
+        <a href="/settings" class="text-xs text-green-600 hover:text-green-800">Manage agents</a>
+    </div>
+    <div x-show="!hasOnlineAgent && !loadingAgentStatus" class="mb-4 bg-amber-50 border border-amber-200 rounded-md p-3 flex items-center justify-between">
+        <div class="flex items-center">
+            <span class="h-2 w-2 bg-amber-400 rounded-full mr-2"></span>
+            <span class="text-sm text-amber-700">No print agent online - labels will open in browser for manual printing</span>
+        </div>
+        <a href="/settings" class="text-xs text-amber-600 hover:text-amber-800">Set up agent</a>
     </div>
 
+    <!-- Label Settings (read-only, configured in Settings) -->
     <div class="mb-6">
-        <label for="label-type" class="block text-sm font-medium text-gray-700">Label Type</label>
-        <select x-model="labelType" id="label-type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
-            <option value="qr">QR Code</option>
-            <option value="barcode">Barcode</option>
-        </select>
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-medium text-gray-900">Label Settings</h2>
+            <a href="/settings#labels" class="text-xs text-primary-600 hover:text-primary-500">
+                Change in Settings
+            </a>
+        </div>
+        <div class="bg-gray-50 rounded-md p-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                    <span class="text-gray-500">Format:</span>
+                    <span class="ml-2 font-medium text-gray-900" x-text="selectedFormat?.name || labelFormat"></span>
+                    <span class="text-xs text-gray-400 ml-1" x-text="selectedFormat ? '(' + selectedFormat.width_mm + 'mm x ' + selectedFormat.height_mm + 'mm)' : ''"></span>
+                </div>
+                <div>
+                    <span class="text-gray-500">Code Type:</span>
+                    <span class="ml-2 font-medium text-gray-900" x-text="codeType === 'qr' ? 'QR Code' : 'Barcode (Code128)'"></span>
+                </div>
+                <div>
+                    <span class="text-gray-500">Copies:</span>
+                    <span class="ml-2 font-medium text-gray-900" x-text="copies + ' per label'"></span>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <!-- Stock Selection -->
     <div class="mb-6">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Select Stocks</label>
+        <div class="flex items-center justify-between mb-2">
+            <label class="block text-sm font-medium text-gray-700">Select Stocks</label>
+            <div class="flex items-center gap-2">
+                <button @click="selectAll()" class="text-xs text-primary-600 hover:text-primary-500">Select All</button>
+                <span class="text-gray-300">|</span>
+                <button @click="selectedStocks = []" class="text-xs text-gray-500 hover:text-gray-700">Clear</button>
+            </div>
+        </div>
+
+        <!-- Search/filter -->
+        <div class="mb-2">
+            <input type="text" x-model="searchQuery" placeholder="Filter stocks..."
+                   class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+        </div>
+
         <div class="border rounded-md max-h-64 overflow-y-auto">
-            <template x-if="stocks.length === 0">
+            <template x-if="filteredStocks.length === 0">
                 <div class="p-4 text-center text-gray-500">
-                    No stocks available. <a href="/stocks/new" class="text-primary-600 hover:text-primary-500">Add your first stock</a>.
+                    <template x-if="stocks.length === 0">
+                        <span>No stocks available. <a href="/stocks/new" class="text-primary-600 hover:text-primary-500">Add your first stock</a>.</span>
+                    </template>
+                    <template x-if="stocks.length > 0">
+                        <span>No stocks match your filter.</span>
+                    </template>
                 </div>
             </template>
-            <template x-for="stock in stocks" :key="stock.id">
+            <template x-for="stock in filteredStocks" :key="stock.id">
                 <label class="flex items-center px-4 py-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0">
                     <input type="checkbox" :value="stock.id" x-model="selectedStocks"
                            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
-                    <span class="ml-3 text-sm">
+                    <span class="ml-3 text-sm flex-1">
                         <span class="font-medium text-gray-900" x-text="stock.stock_id"></span>
-                        <span class="text-gray-500" x-text="' - ' + stock.genotype.substring(0, 50) + (stock.genotype.length > 50 ? '...' : '')"></span>
+                        <span class="text-gray-500" x-text="' - ' + truncate(stock.genotype, 50)"></span>
                     </span>
+                    <span x-show="stock.tray_name" class="ml-2 text-xs text-gray-400" x-text="stock.tray_name"></span>
                 </label>
             </template>
         </div>
     </div>
 
-    <div class="flex items-center justify-between">
-        <span class="text-sm text-gray-500" x-text="selectedStocks.length + ' stock(s) selected'"></span>
-        <button @click="generateLabels()" :disabled="selectedStocks.length === 0"
-                class="inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
-            <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-            Generate Labels
-        </button>
+    <!-- Actions -->
+    <div class="flex items-center justify-between border-t pt-4">
+        <div class="flex items-center gap-3">
+            <span class="text-sm text-gray-500" x-text="selectedStocks.length + ' stock(s) selected'"></span>
+            <!-- Test Label Button -->
+            <button @click="printTestLabel()" :disabled="loading || !hasOnlineAgent"
+                    class="inline-flex items-center rounded-md bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Print a test label to verify alignment">
+                <svg class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Test Label
+            </button>
+        </div>
+        <div class="flex items-center gap-3">
+            <button @click="generatePreview()" :disabled="selectedStocks.length === 0 || loading"
+                    class="inline-flex items-center rounded-md bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Preview
+            </button>
+            <!-- One-click print button -->
+            <button @click="printLabels()" :disabled="selectedStocks.length === 0 || loading"
+                    :class="hasOnlineAgent ? 'bg-green-600 hover:bg-green-500' : 'bg-primary-600 hover:bg-primary-500'"
+                    class="inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg class="h-4 w-4 mr-2" :class="{'animate-spin': loading}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <template x-if="!loading">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </template>
+                </svg>
+                <span x-text="loading ? 'Processing...' : (hasOnlineAgent ? 'Print Now' : 'Print Labels')"></span>
+            </button>
+        </div>
     </div>
 
-    <!-- Preview area -->
-    <div x-show="previewUrls.length > 0" class="mt-8 border-t pt-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Preview</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <template x-for="(url, index) in previewUrls" :key="index">
-                <div class="border rounded-lg p-4 text-center">
-                    <img :src="url" alt="Label preview" class="mx-auto max-h-32">
-                    <a :href="url" download class="mt-2 text-sm text-primary-600 hover:text-primary-500">Download</a>
+    <!-- Recent Print Jobs (if any) -->
+    <div x-show="recentJobs.length > 0" class="mt-6 border-t pt-4">
+        <h3 class="text-sm font-medium text-gray-700 mb-2">Recent Print Jobs</h3>
+        <div class="space-y-2">
+            <template x-for="job in recentJobs.slice(0, 3)" :key="job.id">
+                <div class="flex items-center justify-between text-sm p-2 bg-gray-50 rounded">
+                    <div class="flex items-center gap-2">
+                        <span :class="{
+                            'bg-green-100 text-green-800': job.status === 'completed',
+                            'bg-yellow-100 text-yellow-800': job.status === 'printing' || job.status === 'claimed',
+                            'bg-gray-100 text-gray-800': job.status === 'pending',
+                            'bg-red-100 text-red-800': job.status === 'failed'
+                        }" class="px-2 py-0.5 rounded text-xs font-medium capitalize" x-text="job.status"></span>
+                        <span class="text-gray-600" x-text="job.stock_ids.length + ' label(s)'"></span>
+                    </div>
+                    <span class="text-gray-400 text-xs" x-text="formatTime(job.created_at)"></span>
                 </div>
             </template>
         </div>
-        <div class="mt-4 flex justify-end">
-            <button @click="printLabels()" class="inline-flex items-center rounded-md bg-gray-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500">
-                <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+    </div>
+
+    <!-- Preview Modal -->
+    <div x-show="showPreview" x-cloak
+         class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+         @keydown.escape.window="showPreview = false">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden" @click.away="showPreview = false">
+            <div class="px-6 py-4 border-b flex items-center justify-between">
+                <h3 class="text-lg font-medium text-gray-900">Label Preview</h3>
+                <button @click="showPreview = false" class="text-gray-400 hover:text-gray-500">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto max-h-[60vh]">
+                <template x-if="previewPdfUrl">
+                    <div class="flex justify-center">
+                        <iframe :src="previewPdfUrl" class="w-full h-96 border rounded"></iframe>
+                    </div>
+                </template>
+            </div>
+            <div class="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3">
+                <button @click="downloadLabels()"
+                        class="inline-flex items-center rounded-md bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-200">
+                    <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download PDF
+                </button>
+                <button @click="printFromPreview()"
+                        class="inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
+                    <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Print
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Toast -->
+    <div x-show="successMessage" x-cloak
+         x-transition:enter="transform ease-out duration-300 transition"
+         x-transition:enter-start="translate-y-2 opacity-0"
+         x-transition:enter-end="translate-y-0 opacity-100"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed bottom-4 right-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg shadow-lg">
+        <div class="flex items-center">
+            <svg class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+            </svg>
+            <span x-text="successMessage"></span>
+        </div>
+    </div>
+
+    <!-- Error Toast -->
+    <div x-show="errorMessage" x-cloak
+         x-transition:enter="transform ease-out duration-300 transition"
+         x-transition:enter-start="translate-y-2 opacity-0"
+         x-transition:enter-end="translate-y-0 opacity-100"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed bottom-4 right-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg">
+        <div class="flex items-center">
+            <svg class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+            </svg>
+            <span x-text="errorMessage"></span>
+            <button @click="errorMessage = ''" class="ml-4 text-red-500 hover:text-red-700">
+                <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                 </svg>
-                Print All
             </button>
         </div>
     </div>
@@ -79,8 +240,59 @@ function labelsPage() {
     return {
         stocks: [],
         selectedStocks: [],
-        labelType: 'qr',
-        previewUrls: [],
+        searchQuery: '',
+        labelFormat: 'dymo_11352',
+        codeType: 'qr',
+        copies: 1,
+        availableFormats: [],
+        loading: false,
+        loadingAgentStatus: true,
+        hasOnlineAgent: false,
+        showPreview: false,
+        previewPdfUrl: null,
+        errorMessage: '',
+        successMessage: '',
+        recentJobs: [],
+
+        get filteredStocks() {
+            if (!this.searchQuery.trim()) return this.stocks;
+            const query = this.searchQuery.toLowerCase();
+            return this.stocks.filter(s =>
+                s.stock_id.toLowerCase().includes(query) ||
+                s.genotype.toLowerCase().includes(query)
+            );
+        },
+
+        get selectedFormat() {
+            return this.availableFormats.find(f => f.id === this.labelFormat);
+        },
+
+        async init() {
+            await Promise.all([
+                this.loadStocks(),
+                this.loadFormats(),
+                this.loadLabelSettings(),
+                this.checkAgentStatus(),
+                this.loadRecentJobs()
+            ]);
+        },
+
+        async loadLabelSettings() {
+            try {
+                const response = await fetch('/api/organizations/tenant/label-settings', {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const settings = await response.json();
+                    this.labelFormat = settings.default_label_format;
+                    this.codeType = settings.default_code_type;
+                    this.copies = settings.default_copies;
+                }
+            } catch (error) {
+                console.error('Error loading label settings:', error);
+            }
+        },
+
         async loadStocks() {
             try {
                 const response = await fetch('/api/stocks?page_size=100', {
@@ -88,30 +300,232 @@ function labelsPage() {
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    this.stocks = data.items || [];
+                    this.stocks = (data.items || []).map(s => ({
+                        ...s,
+                        tray_name: s.tray?.name || null
+                    }));
                 }
             } catch (error) {
                 console.error('Error loading stocks:', error);
+                this.errorMessage = 'Failed to load stocks';
             }
         },
-        generateLabels() {
-            this.previewUrls = this.selectedStocks.map(id =>
-                `/api/labels/stock/${id}/${this.labelType}`
-            );
+
+        async loadFormats() {
+            try {
+                const response = await fetch('/api/labels/pdf-formats', {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    this.availableFormats = await response.json();
+                }
+            } catch (error) {
+                console.error('Error loading formats:', error);
+                this.availableFormats = [
+                    { id: 'dymo_11352', name: 'Dymo 11352', width_mm: 54, height_mm: 24, description: '54mm x 24mm' },
+                    { id: 'dymo_99010', name: 'Dymo 99010', width_mm: 89, height_mm: 28, description: '89mm x 28mm' },
+                ];
+            }
         },
-        printLabels() {
-            const printWindow = window.open('', '_blank');
-            const images = this.previewUrls.map(url => `<img src="${url}" style="max-width: 200px; margin: 10px;">`).join('');
-            printWindow.document.write(`
-                <html>
-                <head><title>Print Labels</title></head>
-                <body style="text-align: center;">
-                    ${images}
-                    <script>window.onload = function() { window.print(); }<\/script>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
+
+        async checkAgentStatus() {
+            this.loadingAgentStatus = true;
+            try {
+                const response = await fetch('/api/labels/agents/status/online', {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    this.hasOnlineAgent = data.has_online_agent;
+                }
+            } catch (error) {
+                console.error('Error checking agent status:', error);
+            } finally {
+                this.loadingAgentStatus = false;
+            }
+        },
+
+        async loadRecentJobs() {
+            try {
+                const response = await fetch('/api/labels/jobs?limit=5', {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    this.recentJobs = await response.json();
+                }
+            } catch (error) {
+                console.error('Error loading recent jobs:', error);
+            }
+        },
+
+        selectAll() {
+            this.selectedStocks = this.filteredStocks.map(s => s.id);
+        },
+
+        truncate(text, length) {
+            if (text.length <= length) return text;
+            return text.substring(0, length - 3) + '...';
+        },
+
+        formatTime(dateStr) {
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMin = Math.floor(diffMs / 60000);
+
+            if (diffMin < 1) return 'Just now';
+            if (diffMin < 60) return `${diffMin}m ago`;
+            if (diffMin < 1440) return `${Math.floor(diffMin / 60)}h ago`;
+            return date.toLocaleDateString();
+        },
+
+        async generatePreview() {
+            if (this.selectedStocks.length === 0) return;
+
+            this.loading = true;
+            this.previewPdfUrl = null;
+
+            try {
+                const response = await fetch(`/api/labels/batch/pdf?format=${this.labelFormat}&code_type=${this.codeType}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(this.selectedStocks)
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    this.previewPdfUrl = URL.createObjectURL(blob);
+                    this.showPreview = true;
+                } else {
+                    throw new Error('Failed to generate PDF');
+                }
+            } catch (error) {
+                console.error('Error generating preview:', error);
+                this.errorMessage = 'Failed to generate preview';
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async printLabels() {
+            if (this.selectedStocks.length === 0) return;
+
+            this.loading = true;
+            this.errorMessage = '';
+            this.successMessage = '';
+
+            try {
+                if (this.hasOnlineAgent) {
+                    // Create a print job for the agent
+                    const response = await fetch('/api/labels/print', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            stock_ids: this.selectedStocks,
+                            label_format: this.labelFormat,
+                            copies: this.copies,
+                            code_type: this.codeType
+                        })
+                    });
+
+                    if (response.ok) {
+                        this.successMessage = 'Print job created! Labels will print shortly.';
+                        setTimeout(() => this.successMessage = '', 5000);
+                        this.selectedStocks = [];
+                        await this.loadRecentJobs();
+                    } else {
+                        throw new Error('Failed to create print job');
+                    }
+                } else {
+                    // No agent - generate PDF and use browser printing
+                    const response = await fetch(`/api/labels/batch/pdf?format=${this.labelFormat}&code_type=${this.codeType}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify(this.selectedStocks)
+                    });
+
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const pdfUrl = URL.createObjectURL(blob);
+
+                        printJS({
+                            printable: pdfUrl,
+                            type: 'pdf',
+                            showModal: true,
+                            modalMessage: 'Preparing labels for printing...',
+                            onPrintDialogClose: () => {
+                                URL.revokeObjectURL(pdfUrl);
+                            }
+                        });
+                    } else {
+                        throw new Error('Failed to generate PDF');
+                    }
+                }
+            } catch (error) {
+                console.error('Error printing labels:', error);
+                this.errorMessage = 'Failed to print labels. Please try again.';
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        printFromPreview() {
+            if (this.previewPdfUrl) {
+                printJS({
+                    printable: this.previewPdfUrl,
+                    type: 'pdf',
+                    showModal: true,
+                    modalMessage: 'Preparing labels for printing...'
+                });
+            }
+        },
+
+        downloadLabels() {
+            if (this.previewPdfUrl) {
+                const link = document.createElement('a');
+                link.href = this.previewPdfUrl;
+                link.download = 'labels.pdf';
+                link.click();
+            }
+        },
+
+        updatePreview() {
+            this.previewPdfUrl = null;
+            this.showPreview = false;
+        },
+
+        async printTestLabel() {
+            if (!this.hasOnlineAgent) {
+                this.errorMessage = 'No print agent online. Please connect an agent first.';
+                return;
+            }
+
+            this.loading = true;
+            this.errorMessage = '';
+            this.successMessage = '';
+
+            try {
+                const response = await fetch(`/api/labels/test-label/print?format=${this.labelFormat}`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    this.successMessage = 'Test label sent to printer. Check alignment.';
+                    setTimeout(() => this.successMessage = '', 5000);
+                    await this.loadRecentJobs();
+                } else {
+                    throw new Error('Failed to print test label');
+                }
+            } catch (error) {
+                console.error('Error printing test label:', error);
+                this.errorMessage = 'Failed to print test label.';
+            } finally {
+                this.loading = false;
+            }
         }
     }
 }

@@ -159,6 +159,20 @@ def get_current_tenant_id(
     return current_user.tenant_id
 
 
+def get_current_user_id(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> UUID:
+    """Get the user ID for the current user.
+
+    Args:
+        current_user: The authenticated user.
+
+    Returns:
+        UUID: The user ID.
+    """
+    return current_user.id
+
+
 # Type aliases for cleaner dependency injection
 DbSession = Annotated[Session, Depends(get_db)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
@@ -166,3 +180,4 @@ CurrentUserOptional = Annotated[User | None, Depends(get_current_user_optional)]
 CurrentAdmin = Annotated[User, Depends(get_current_admin_user)]
 CurrentAdminUser = CurrentAdmin  # Alias for backwards compatibility
 CurrentTenantId = Annotated[UUID, Depends(get_current_tenant_id)]
+CurrentUserId = Annotated[UUID, Depends(get_current_user_id)]

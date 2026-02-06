@@ -44,6 +44,21 @@
     <!-- Stock details -->
     <template x-if="!loading && !error && stock">
         <div class="space-y-6">
+            <!-- Large Touch-Friendly Print Button -->
+            <button @click="printLabel()" :disabled="printing"
+                    :class="hasOnlineAgent ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 ring-emerald-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 ring-slate-300'"
+                    class="w-full flex items-center justify-center gap-3 rounded-xl px-6 py-5 text-lg font-semibold shadow-sm ring-1 ring-inset disabled:opacity-50 active:scale-[0.98] transition-transform touch-manipulation">
+                <svg class="h-7 w-7" :class="{'animate-spin': printing}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <template x-if="!printing">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </template>
+                    <template x-if="printing">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </template>
+                </svg>
+                <span x-text="printing ? 'Printing...' : 'Flip Stock & Print Label'"></span>
+            </button>
+
             <!-- Header -->
             <div class="bg-white shadow rounded-lg p-6">
                 <div class="flex items-center justify-between mb-6">
@@ -62,20 +77,13 @@
                     </div>
                     <div class="flex space-x-3">
                         <button @click="editing = !editing"
-                                class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                                class="inline-flex items-center rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 shadow-sm ring-1 ring-inset ring-amber-200 hover:bg-amber-100">
                             <svg class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                             <span x-text="editing ? 'Cancel' : 'Edit'"></span>
                         </button>
-                        <a :href="'/api/labels/stock/' + stock.id + '/qr'" target="_blank"
-                           class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
-                            <svg class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                            </svg>
-                            QR Code
-                        </a>
-                        <button @click="deleteStock()" class="inline-flex items-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500">
+                        <button @click="deleteStock()" class="inline-flex items-center rounded-md bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm ring-1 ring-inset ring-rose-200 hover:bg-rose-100">
                             Delete
                         </button>
                     </div>
@@ -384,6 +392,10 @@ function stockDetail() {
         fetchingMetadata: false,
         repositoryGenotype: null,
         repositoryMetadata: null,
+        // Print state
+        hasOnlineAgent: false,
+        printing: false,
+        labelSettings: null,
         editForm: {
             stock_id: '',
             genotype: '',
@@ -405,12 +417,82 @@ function stockDetail() {
                 this.loadStock(),
                 this.loadTrays(),
                 this.loadUsers(),
-                this.loadTags()
+                this.loadTags(),
+                this.checkAgentStatus(),
+                this.loadLabelSettings()
             ]);
 
             // Watch for repository changes to reset fetched metadata
             this.$watch('editForm.repository', () => this.clearRepositoryMetadata());
             this.$watch('editForm.repository_stock_id', () => this.clearRepositoryMetadata());
+        },
+
+        async checkAgentStatus() {
+            try {
+                const response = await fetch('/api/labels/agents/status/online', {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    this.hasOnlineAgent = data.has_online_agent;
+                }
+            } catch (error) {
+                console.error('Error checking agent status:', error);
+            }
+        },
+
+        async loadLabelSettings() {
+            try {
+                const response = await fetch('/api/organizations/tenant/label-settings', {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    this.labelSettings = await response.json();
+                }
+            } catch (error) {
+                console.error('Error loading label settings:', error);
+            }
+        },
+
+        async printLabel() {
+            if (!this.stock) return;
+
+            this.printing = true;
+            const format = this.labelSettings?.default_label_format || 'dymo_11352';
+            const codeType = this.labelSettings?.default_code_type || 'qr';
+            const copies = this.labelSettings?.default_copies || 1;
+
+            try {
+                if (this.hasOnlineAgent) {
+                    // Create a print job for the agent
+                    const response = await fetch('/api/labels/print', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            stock_ids: [this.stock.id],
+                            label_format: format,
+                            copies: copies,
+                            code_type: codeType
+                        })
+                    });
+
+                    if (response.ok) {
+                        // Show brief success indication
+                        alert('Print job created! Label will print shortly.');
+                    } else {
+                        throw new Error('Failed to create print job');
+                    }
+                } else {
+                    // No agent - open PDF in new tab for manual printing
+                    window.open(`/api/labels/stock/${this.stock.id}/pdf?format=${format}&code_type=${codeType}`, '_blank');
+                }
+            } catch (error) {
+                console.error('Error printing label:', error);
+                alert('Failed to print label. Please try again.');
+            } finally {
+                this.printing = false;
+            }
         },
 
         clearRepositoryMetadata() {

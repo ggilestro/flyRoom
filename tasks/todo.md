@@ -1,3 +1,196 @@
+# Label Content Enhancement: QR vs Barcode Support
+
+## Current Task
+Enhance labels with option to choose between QR code and Code128 barcode, plus additional human-readable info including print date.
+
+**Date Started:** 2026-02-05
+**Date Completed:** 2026-02-05
+**Status:** Complete
+
+## Implementation Summary
+
+### Changes Made
+1. **pdf_generator.py**
+   - Added `code_type: Literal["qr", "barcode"]` parameter to all label generation functions
+   - Added `print_date: str | None` parameter (auto-populated with current date if None)
+   - QR layout: QR code on left, text on right (stock_id, genotype, source, location + date)
+   - Barcode layout: Text on top, Code128 barcode at bottom (centered, full width)
+   - Fixed dimension key lookup to handle both `width_mm`/`height_mm` and `width`/`height`
+
+2. **service.py**
+   - Updated `_build_stock_label_data()` to include print_date
+   - Added `code_type` parameter to `generate_pdf()` and `generate_batch_pdf()`
+
+3. **router.py**
+   - Added `code_type` query parameter to PDF endpoints (`get_stock_pdf`, `generate_batch_pdf`)
+   - Updated agent PDF/image endpoints to pass code_type
+
+4. **schemas.py**
+   - Added `code_type: str = "qr"` to `PrintJobCreate`, `PrintJobResponse`, `PrintJobLabels`
+   - Added `print_date: str | None` to `LabelData`
+
+5. **models.py**
+   - Added `code_type: str` column to `PrintJob` model (default: "qr")
+
+6. **Database Migration**
+   - Created `006_add_code_type_to_print_jobs.py` migration
+
+7. **print_service.py**
+   - Updated `create_job()` to include code_type
+   - Updated `get_job_labels()` to include code_type and print_date
+
+8. **templates/labels/index.html**
+   - Added "Code Type" dropdown (QR Code / Barcode) in Label Settings
+   - Updated generatePreview() and printLabels() to pass code_type parameter
+   - Added description text explaining each layout
+
+## Label Layouts
+
+### QR Code Label
+```
+┌─────────────────────────────────────────┐
+│ ┌─────┐  BL-1234                        │
+│ │ QR  │  w[1118]; P{GAL4-da.G32}UH1    │
+│ │     │  BDSC #3605                     │
+│ └─────┘  Tray A - 15     2026-02-05    │
+└─────────────────────────────────────────┘
+```
+
+### Barcode Label
+```
+┌─────────────────────────────────────────┐
+│  BL-1234          w[1118]; P{GAL4-...  │
+│  BDSC #3605       Tray A - 15          │
+│  2026-02-05                             │
+│  |||||||||||||||||||||||||||||||||||    │
+│           BL-1234                       │
+└─────────────────────────────────────────┘
+```
+
+## Test Results
+- All 39 label tests pass
+- Linting clean (ruff)
+
+---
+
+# Label Printing System with Print Agent
+
+## Current Task
+Implement transparent label printing - users click "Print" and labels come out without configuration needed per-print.
+
+**Date Started:** 2026-02-05
+**Date Completed:** 2026-02-05
+**Status:** Complete
+
+## Implementation Summary
+
+### Phase 1: PDF Generation & Browser Print
+- Added `reportlab>=4.0.0` dependency for PDF generation
+- Created `app/labels/pdf_generator.py` with:
+  - Proper PDF labels for Dymo 11352 (54x24mm) and other formats
+  - QR code embedding with stock ID
+  - Text wrapping for genotype display
+  - Source and location info display
+- Added Dymo label formats: `dymo_11352`, `dymo_99010`, `dymo_99012`
+- Added PDF endpoints: `GET /stock/{id}/pdf`, `POST /batch/pdf`, `GET /pdf-formats`
+- Updated labels UI with Print.js integration for direct browser printing
+
+### Phase 2: Print Job Queue System
+- Created database models in `app/db/models.py`:
+  - `PrintAgent`: Local print clients with API key auth
+  - `PrintJob`: Queued print jobs with status tracking
+  - `PrintJobStatus` enum: pending, claimed, printing, completed, failed, cancelled
+- Created migration `alembic/versions/002_add_print_jobs.py`
+- Created `app/labels/schemas.py` with Pydantic schemas for API
+- Created `app/labels/print_service.py` with:
+  - Agent CRUD operations
+  - Job creation, claiming, completion
+  - Heartbeat and online status tracking
+  - Label data retrieval for agents
+
+### Phase 3: Print Agent (flyprint)
+- Created standalone `flyprint/` package:
+  - `config.py`: Configuration management (~/.config/flyprint/config.json)
+  - `printer.py`: CUPS printing via pycups with lp fallback
+  - `agent.py`: Server polling loop with job processing
+  - `cli.py`: CLI commands (configure, test, start, printers, install-service)
+  - `pyproject.toml`: Separate package for pip install
+- Agent features:
+  - Heartbeat to indicate online status
+  - Job polling, claiming, and completion reporting
+  - PDF download and CUPS printing
+  - Systemd service installation
+
+### Phase 4: Admin UI & Integration
+- Added Print Agents section to Settings page:
+  - Create/edit/delete agents
+  - API key generation (shown once)
+  - Online status indicators
+  - Setup instructions
+- Updated Labels page:
+  - Agent status banner (online/offline)
+  - One-click "Print Now" when agent online
+  - Fallback to browser printing when offline
+  - Recent print jobs display
+  - Copies per label selector
+
+### API Endpoints Added
+
+**User-facing:**
+- `POST /api/labels/print` - Create print job
+- `GET /api/labels/jobs` - List jobs
+- `GET /api/labels/jobs/{id}` - Get job
+- `POST /api/labels/jobs/{id}/cancel` - Cancel job
+- `GET /api/labels/jobs/statistics` - Job stats
+
+**Agent-facing:**
+- `POST /api/labels/agents` - Create agent (returns API key)
+- `GET /api/labels/agents` - List agents
+- `GET /api/labels/agents/status/online` - Check if any agent online
+- `POST /api/labels/agent/heartbeat` - Agent heartbeat
+- `GET /api/labels/agent/jobs` - Get pending jobs for agent
+- `POST /api/labels/agent/jobs/{id}/claim` - Claim job
+- `GET /api/labels/agent/jobs/{id}/labels` - Get label data
+- `GET /api/labels/agent/jobs/{id}/pdf` - Get PDF for job
+- `POST /api/labels/agent/jobs/{id}/start` - Mark as printing
+- `POST /api/labels/agent/jobs/{id}/complete` - Mark complete/failed
+
+## Test Results
+- 39 new unit tests for PDF generation and print service
+- All 270 tests pass
+
+## Files Created/Modified
+
+### New Files
+- `app/labels/pdf_generator.py`
+- `app/labels/print_service.py`
+- `app/labels/schemas.py`
+- `alembic/versions/002_add_print_jobs.py`
+- `flyprint/__init__.py`
+- `flyprint/__main__.py`
+- `flyprint/agent.py`
+- `flyprint/cli.py`
+- `flyprint/config.py`
+- `flyprint/printer.py`
+- `flyprint/pyproject.toml`
+- `flyprint/README.md`
+- `tests/test_labels/__init__.py`
+- `tests/test_labels/test_pdf_generator.py`
+- `tests/test_labels/test_print_service.py`
+
+### Modified Files
+- `pyproject.toml` - Added reportlab dependency
+- `app/db/models.py` - Added PrintAgent, PrintJob, PrintJobStatus
+- `app/dependencies.py` - Added CurrentUserId
+- `app/labels/__init__.py` - Updated exports
+- `app/labels/generators.py` - Added Dymo formats
+- `app/labels/router.py` - Added PDF and print job endpoints
+- `app/labels/service.py` - Added PDF generation methods
+- `app/templates/labels/index.html` - Updated with agent status and one-click print
+- `app/templates/settings.html` - Added Print Agents section
+
+---
+
 # Improve Tray Handling in CSV Import
 
 ## Current Task

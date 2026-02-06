@@ -182,6 +182,32 @@ class TestDeleteStock:
         assert response.status_code == 404
 
 
+class TestSearchStocksHTML:
+    """Tests for the HTMX search endpoint."""
+
+    def test_search_returns_html(self, authenticated_client: TestClient, test_stock: Stock):
+        """Test that search endpoint returns HTML content."""
+        response = authenticated_client.get("/api/stocks/search?search=elav")
+
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "BL-1234" in response.text
+
+    def test_search_short_query_returns_empty(self, authenticated_client: TestClient):
+        """Test that queries under 2 chars return empty response."""
+        response = authenticated_client.get("/api/stocks/search?search=a")
+
+        assert response.status_code == 200
+        assert response.text == ""
+
+    def test_search_no_results(self, authenticated_client: TestClient, test_stock: Stock):
+        """Test search with no matches shows appropriate message."""
+        response = authenticated_client.get("/api/stocks/search?search=nonexistent")
+
+        assert response.status_code == 200
+        assert "No stocks found" in response.text
+
+
 class TestTags:
     """Tests for tag operations."""
 

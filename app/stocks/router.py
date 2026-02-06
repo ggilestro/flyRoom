@@ -2,7 +2,9 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.db.models import StockOrigin, StockRepository, StockVisibility
@@ -20,6 +22,9 @@ from app.stocks.schemas import (
 from app.stocks.service import StockService, get_stock_service
 
 router = APIRouter()
+
+# Templates for HTML responses
+templates = Jinja2Templates(directory="app/templates")
 
 
 def get_service(
@@ -150,6 +155,48 @@ async def get_repository_metadata(
             "found": False,
             "message": f"Repository {repository.value} metadata lookup not yet supported",
         }
+
+
+@router.get("/search", response_class=HTMLResponse)
+async def search_stocks_html(
+    request: Request,
+    service: Annotated[StockService, Depends(get_service)],
+    search: str = Query("", description="Search query from navbar"),
+):
+    """Search stocks and return HTML for HTMX dropdown.
+
+    Args:
+        request: FastAPI request object.
+        service: Stock service.
+        search: Search query string.
+
+    Returns:
+        HTMLResponse: Rendered search results partial.
+    """
+    query = search.strip()
+    if not query or len(query) < 2:
+        # Return empty/hidden state for short queries
+        return HTMLResponse("")
+
+    # Search with a reasonable limit for dropdown
+    limit = 10
+    params = StockSearchParams(
+        query=query,
+        page=1,
+        page_size=limit,
+    )
+    result = service.list_stocks(params)
+
+    return templates.TemplateResponse(
+        request,
+        "components/search_results.html",
+        {
+            "stocks": result.items,
+            "total": result.total,
+            "limit": limit,
+            "query": query,
+        },
+    )
 
 
 @router.get("/{stock_id}", response_model=StockResponse)

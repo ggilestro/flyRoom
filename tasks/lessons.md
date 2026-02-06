@@ -61,3 +61,26 @@
 3. When adding ignore rules, add them to `pyproject.toml` so they apply everywhere
 
 **Prevention**: Before pushing, run `pre-commit run --all-files` to catch issues the same way CI does.
+
+## 2026-02-05: Dymo LabelWriter 400 CUPS Integration
+
+**Problem**: Labels printed at wrong size (2x or 4x expected), wrong orientation, or wrong position.
+
+**Root cause**: CUPS PDF filters apply unpredictable scaling. The `-o ppi=300` option is not reliably respected.
+
+**Solution**:
+1. **Use PNG images instead of PDF** - goes directly to raster driver, avoids scaling issues
+2. **Use 72 DPI** (not 300 DPI) - CUPS interprets images at 72 DPI by default
+3. **Match pixel dimensions to CUPS page size** - for `w72h154`, use 72×154 pixels
+4. **Account for printer margins** - PPD `ImageableArea` shows non-printable area; add `left_margin_px` offset
+5. **Use lpr with `scaling=100` and `fit-to-page=false`**
+
+**Key formula**: For any CUPS page size `wXXhYY`, create a PNG that is XX×YY pixels at 72 DPI.
+
+**What didn't work**:
+- PDF output (always scaled incorrectly)
+- `-o ppi=300` option (ignored by CUPS)
+- High-resolution images (interpreted at 72 DPI, appeared 4x larger)
+- ReportLab canvas rotation (coordinate transforms moved content off-page)
+
+**Documentation**: See `/docs/label-printer-integration.md` for full details and reference when adding new printer models.

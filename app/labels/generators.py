@@ -116,6 +116,33 @@ def generate_label_content(
 
 # Label format presets
 LABEL_FORMATS = {
+    "dymo_11352": {
+        "name": "Dymo 11352 Address Label",
+        "width_mm": 54,
+        "height_mm": 24,
+        "orientation": "landscape",
+        "font_size": 8,
+        "qr_size": 50,
+        "supports_pdf": True,
+    },
+    "dymo_99010": {
+        "name": "Dymo 99010 Standard Address",
+        "width_mm": 89,
+        "height_mm": 28,
+        "orientation": "landscape",
+        "font_size": 9,
+        "qr_size": 60,
+        "supports_pdf": True,
+    },
+    "dymo_99012": {
+        "name": "Dymo 99012 Large Address",
+        "width_mm": 89,
+        "height_mm": 36,
+        "orientation": "landscape",
+        "font_size": 10,
+        "qr_size": 70,
+        "supports_pdf": True,
+    },
     "brother_29mm": {
         "name": "Brother 29mm",
         "width_mm": 29,
@@ -123,6 +150,7 @@ LABEL_FORMATS = {
         "orientation": "portrait",
         "font_size": 8,
         "qr_size": 80,
+        "supports_pdf": True,
     },
     "brother_62mm": {
         "name": "Brother 62mm",
@@ -131,6 +159,7 @@ LABEL_FORMATS = {
         "orientation": "landscape",
         "font_size": 10,
         "qr_size": 100,
+        "supports_pdf": True,
     },
     "standard_1x2": {
         "name": "Standard 1x2 inch",
@@ -139,6 +168,7 @@ LABEL_FORMATS = {
         "orientation": "landscape",
         "font_size": 8,
         "qr_size": 60,
+        "supports_pdf": True,
     },
 }
 

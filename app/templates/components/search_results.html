@@ -1,0 +1,35 @@
+<!-- Search results dropdown partial (for HTMX) -->
+{% if stocks %}
+<ul class="max-h-60 overflow-auto py-1 text-base">
+    {% for stock in stocks %}
+    <li>
+        <a href="/stocks/{{ stock.id }}"
+           class="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer">
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 truncate">
+                    {{ stock.stock_id }}
+                </p>
+                <p class="text-sm text-gray-500 truncate">
+                    {{ stock.genotype[:60] }}{% if stock.genotype|length > 60 %}...{% endif %}
+                </p>
+            </div>
+            {% if stock.repository %}
+            <span class="ml-2 inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                {{ stock.repository }}
+            </span>
+            {% endif %}
+        </a>
+    </li>
+    {% endfor %}
+</ul>
+{% if total > limit %}
+<div class="px-4 py-2 text-sm text-gray-500 border-t">
+    Showing {{ stocks|length }} of {{ total }} results.
+    <a href="/stocks?query={{ query|urlencode }}" class="text-primary-600 hover:underline">View all</a>
+</div>
+{% endif %}
+{% else %}
+<div class="px-4 py-3 text-sm text-gray-500">
+    No stocks found for "{{ query }}"
+</div>
+{% endif %}

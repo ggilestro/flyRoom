@@ -82,3 +82,21 @@ class TenantGeoUpdate(BaseModel):
     country: str | None = Field(None, max_length=100)
     latitude: float | None = Field(None, ge=-90, le=90)
     longitude: float | None = Field(None, ge=-180, le=180)
+
+
+class TenantLabelSettingsUpdate(BaseModel):
+    """Schema for updating tenant label/print settings."""
+
+    default_label_format: str = Field(..., max_length=50)
+    default_code_type: str = Field(..., pattern="^(qr|barcode)$")
+    default_copies: int = Field(..., ge=1, le=10)
+
+
+class TenantLabelSettingsResponse(BaseModel):
+    """Schema for tenant label settings response."""
+
+    default_label_format: str
+    default_code_type: str
+    default_copies: int
+
+    model_config = ConfigDict(from_attributes=True)

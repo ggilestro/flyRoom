@@ -18,6 +18,8 @@ from app.organizations.schemas import (
     OrgJoinRequestCreate,
     OrgJoinRequestResponse,
     TenantGeoUpdate,
+    TenantLabelSettingsResponse,
+    TenantLabelSettingsUpdate,
 )
 from app.organizations.service import (
     OrganizationService,
@@ -261,6 +263,57 @@ async def update_tenant_geo(
         "latitude": tenant.latitude,
         "longitude": tenant.longitude,
     }
+
+
+# Tenant label settings endpoints
+
+
+@router.get("/tenant/label-settings", response_model=TenantLabelSettingsResponse)
+async def get_tenant_label_settings(
+    db: Annotated[Session, Depends(get_db)],
+    tenant_id: CurrentTenantId,
+):
+    """Get tenant label/print settings."""
+    from app.db.models import Tenant
+
+    tenant = db.query(Tenant).filter(Tenant.id == str(tenant_id)).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    return TenantLabelSettingsResponse(
+        default_label_format=tenant.default_label_format,
+        default_code_type=tenant.default_code_type,
+        default_copies=tenant.default_copies,
+    )
+
+
+@router.put("/tenant/label-settings", response_model=TenantLabelSettingsResponse)
+async def update_tenant_label_settings(
+    data: TenantLabelSettingsUpdate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: CurrentUser,
+    tenant_id: CurrentTenantId,
+):
+    """Update tenant label/print settings (admin only)."""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Only lab admins can update label settings")
+
+    from app.db.models import Tenant
+
+    tenant = db.query(Tenant).filter(Tenant.id == str(tenant_id)).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    tenant.default_label_format = data.default_label_format
+    tenant.default_code_type = data.default_code_type
+    tenant.default_copies = data.default_copies
+    db.commit()
+    db.refresh(tenant)
+
+    return TenantLabelSettingsResponse(
+        default_label_format=tenant.default_label_format,
+        default_code_type=tenant.default_code_type,
+        default_copies=tenant.default_copies,
+    )
 
 
 @router.post("/tenant/leave")

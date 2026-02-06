@@ -4,7 +4,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=mysql+pymysql://flypush:${DB_PASSWORD}@db/flypush
+      - DATABASE_URL=mysql+pymysql://flystocks:${DB_PASSWORD}@db/flystocks
       - SECRET_KEY=${SECRET_KEY}
       - DEBUG=${DEBUG:-false}
       - SMTP_HOST=${SMTP_HOST}
@@ -27,8 +27,8 @@ services:
     image: mariadb:10.11
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
-      - MYSQL_DATABASE=flypush
-      - MYSQL_USER=flypush
+      - MYSQL_DATABASE=flystocks
+      - MYSQL_USER=flystocks
       - MYSQL_PASSWORD=${DB_PASSWORD}
     volumes:
       - db_data:/var/lib/mysql

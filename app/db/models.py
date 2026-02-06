@@ -118,6 +118,17 @@ class StockRequestStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
+class PrintJobStatus(str, enum.Enum):
+    """Print job status enumeration."""
+
+    PENDING = "pending"  # Waiting for agent to pick up
+    CLAIMED = "claimed"  # Agent has claimed the job
+    PRINTING = "printing"  # Currently printing
+    COMPLETED = "completed"  # Successfully printed
+    FAILED = "failed"  # Print failed
+    CANCELLED = "cancelled"  # User cancelled
+
+
 class Organization(Base):
     """Organization model representing a parent entity for labs.
 
@@ -189,6 +200,13 @@ class Tenant(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     invitation_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     invitation_token_created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Label/print settings (admin-configured defaults for this tenant)
+    default_label_format: Mapped[str] = mapped_column(
+        String(50), default="dymo_11352", server_default="dymo_11352"
+    )
+    default_code_type: Mapped[str] = mapped_column(String(20), default="qr", server_default="qr")
+    default_copies: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
 
     # Relationships
     organization: Mapped[Optional["Organization"]] = relationship(
@@ -730,3 +748,104 @@ class StockRequest(Base):
     requester_tenant: Mapped["Tenant"] = relationship("Tenant", foreign_keys=[requester_tenant_id])
     owner_tenant: Mapped["Tenant"] = relationship("Tenant", foreign_keys=[owner_tenant_id])
     responded_by: Mapped[Optional["User"]] = relationship("User", foreign_keys=[responded_by_id])
+
+
+class PrintAgent(Base):
+    """Print agent model representing a local print client.
+
+    Print agents run on lab machines (e.g., Raspberry Pi) and poll
+    the server for print jobs, then print via local CUPS.
+
+    Attributes:
+        id: Primary key UUID.
+        tenant_id: FK to tenant that owns this agent.
+        name: User-friendly name (e.g., "Lab Pi", "John's Desktop").
+        api_key: Secret key for agent authentication.
+        printer_name: CUPS printer name configured on the agent.
+        label_format: Default label format for this agent.
+        last_seen: Last time agent checked in.
+        is_active: Whether the agent is enabled.
+        created_at: Creation timestamp.
+    """
+
+    __tablename__ = "print_agents"
+    __table_args__ = (
+        Index("ix_print_agents_tenant_id", "tenant_id"),
+        Index("ix_print_agents_api_key", "api_key"),
+    )
+
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        CHAR(36), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    api_key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    printer_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    label_format: Mapped[str] = mapped_column(String(50), default="dymo_11352")
+    last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    # Relationships
+    tenant: Mapped["Tenant"] = relationship("Tenant", backref="print_agents")
+    print_jobs: Mapped[list["PrintJob"]] = relationship(
+        "PrintJob", back_populates="agent", foreign_keys="PrintJob.agent_id"
+    )
+
+
+class PrintJob(Base):
+    """Print job model for queued label printing.
+
+    Print jobs are created by users and picked up by print agents.
+
+    Attributes:
+        id: Primary key UUID.
+        tenant_id: FK to tenant.
+        agent_id: FK to agent that claimed/printed this job (nullable).
+        created_by_id: FK to user who created the job.
+        status: Job status (pending, claimed, printing, completed, failed).
+        stock_ids: JSON list of stock UUIDs to print.
+        label_format: Label format to use.
+        copies: Number of copies per label.
+        created_at: Creation timestamp.
+        claimed_at: When an agent claimed the job.
+        completed_at: When printing completed.
+        error_message: Error message if failed.
+    """
+
+    __tablename__ = "print_jobs"
+    __table_args__ = (
+        Index("ix_print_jobs_tenant_id", "tenant_id"),
+        Index("ix_print_jobs_status", "status"),
+        Index("ix_print_jobs_agent_id", "agent_id"),
+    )
+
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        CHAR(36), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    agent_id: Mapped[str | None] = mapped_column(
+        CHAR(36), ForeignKey("print_agents.id", ondelete="SET NULL"), nullable=True
+    )
+    created_by_id: Mapped[str | None] = mapped_column(
+        CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[PrintJobStatus] = mapped_column(
+        Enum(PrintJobStatus, values_callable=lambda x: [e.value for e in x]),
+        default=PrintJobStatus.PENDING,
+    )
+    stock_ids: Mapped[list] = mapped_column(JSON, nullable=False)
+    label_format: Mapped[str] = mapped_column(String(50), default="dymo_11352")
+    copies: Mapped[int] = mapped_column(Integer, default=1)
+    code_type: Mapped[str] = mapped_column(String(20), default="qr")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Relationships
+    tenant: Mapped["Tenant"] = relationship("Tenant", backref="print_jobs")
+    agent: Mapped[Optional["PrintAgent"]] = relationship(
+        "PrintAgent", back_populates="print_jobs", foreign_keys=[agent_id]
+    )
+    created_by: Mapped[Optional["User"]] = relationship("User")
