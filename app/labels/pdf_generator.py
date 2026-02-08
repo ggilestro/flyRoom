@@ -34,7 +34,8 @@ LABEL_FORMATS = {
         "height_mm": 54,
         "output_format": "png",
         "cups_page": "w72h154",
-        "left_margin_mm": 1.5,  # Left margin in mm
+        "left_margin_mm": 3,  # Leading edge margin (becomes left when label is read)
+        "right_margin_mm": 2,  # Trailing edge margin (becomes right when label is read)
         "landscape_content": True,  # Draw content rotated 90° (54mm wide x 25.4mm tall)
     },
     "dymo_99010": {"width": 89, "height": 28, "rotation": 0, "output_format": "pdf"},
@@ -124,10 +125,12 @@ def create_label_png(
     # Pixels per mm at render DPI
     px_per_mm = render_dpi / 25.4
 
-    # Margins in pixels (~1.5mm)
-    left_margin_mm = fmt.get("left_margin_mm", 1.5)
+    # Margins in pixels — account for Dymo's non-printable area at label edges
+    # After -90° rotation, left→top (leading edge), right→bottom (trailing edge)
+    left_margin_mm = fmt.get("left_margin_mm", 3)
+    right_margin_mm = fmt.get("right_margin_mm", 2)
     margin = int(left_margin_mm * px_per_mm)
-    right_margin = int(1 * px_per_mm)
+    right_margin = int(right_margin_mm * px_per_mm)
 
     # Font sizes in mm, converted to pixels
     # - Large (title): 3mm
