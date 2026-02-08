@@ -263,6 +263,10 @@ class PrintService:
         if not tenant:
             return None
 
+        from app.labels.pdf_generator import LABEL_FORMATS
+
+        fmt = LABEL_FORMATS.get(tenant.default_label_format, {})
+
         return {
             "printer_name": agent.printer_name,
             "label_format": tenant.default_label_format,
@@ -272,6 +276,7 @@ class PrintService:
             "poll_interval": agent.poll_interval,
             "log_level": agent.log_level,
             "config_version": agent.config_version,
+            "cups_page": fmt.get("cups_page", "w72h154"),
         }
 
     # ========================================================================

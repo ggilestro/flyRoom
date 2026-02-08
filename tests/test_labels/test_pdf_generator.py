@@ -20,9 +20,9 @@ class TestLabelSizes:
         assert LABEL_SIZES["dymo_11352"] == (25.4, 54)
 
     def test_dymo_99010_dimensions(self):
-        """Dymo 99010 should be 89x28mm."""
+        """Dymo 99010 should be 28x89mm (width x height)."""
         assert "dymo_99010" in LABEL_SIZES
-        assert LABEL_SIZES["dymo_99010"] == (89, 28)
+        assert LABEL_SIZES["dymo_99010"] == (28, 89)
 
     def test_brother_formats_exist(self):
         """Brother formats should be available."""

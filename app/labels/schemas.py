@@ -98,6 +98,7 @@ class PrintAgentConfigResponse(BaseModel):
     poll_interval: int
     log_level: str
     config_version: int
+    cups_page: str = "w72h154"
 
 
 # ============================================================================

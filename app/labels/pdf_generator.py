@@ -34,14 +34,46 @@ LABEL_FORMATS = {
         "height_mm": 54,
         "output_format": "png",
         "cups_page": "w72h154",
-        "left_margin_mm": 3,  # Leading edge margin (becomes left when label is read)
-        "right_margin_mm": 2,  # Trailing edge margin (becomes right when label is read)
-        "landscape_content": True,  # Draw content rotated 90° (54mm wide x 25.4mm tall)
+        "left_margin_mm": 3,
+        "right_margin_mm": 2,
+        "landscape_content": True,
     },
-    "dymo_99010": {"width": 89, "height": 28, "rotation": 0, "output_format": "pdf"},
-    "dymo_99012": {"width": 89, "height": 36, "rotation": 0, "output_format": "pdf"},
-    "brother_29mm": {"width": 90, "height": 29, "rotation": 0, "output_format": "pdf"},
-    "brother_62mm": {"width": 100, "height": 62, "rotation": 0, "output_format": "pdf"},
+    "dymo_99010": {
+        "width_mm": 28,
+        "height_mm": 89,
+        "output_format": "pdf",
+        "cups_page": "w79h252",
+        "left_margin_mm": 3,
+        "right_margin_mm": 2,
+        "landscape_content": True,
+    },
+    "dymo_99012": {
+        "width_mm": 36,
+        "height_mm": 89,
+        "output_format": "pdf",
+        "cups_page": "w102h252",
+        "left_margin_mm": 3,
+        "right_margin_mm": 2,
+        "landscape_content": True,
+    },
+    "brother_29mm": {
+        "width_mm": 29,
+        "height_mm": 90,
+        "output_format": "pdf",
+        "cups_page": "w82h255",
+        "left_margin_mm": 1,
+        "right_margin_mm": 1,
+        "landscape_content": True,
+    },
+    "brother_62mm": {
+        "width_mm": 62,
+        "height_mm": 100,
+        "output_format": "pdf",
+        "cups_page": "w176h283",
+        "left_margin_mm": 1,
+        "right_margin_mm": 1,
+        "landscape_content": True,
+    },
 }
 
 
