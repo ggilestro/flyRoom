@@ -30,6 +30,11 @@
 </aside>
 
 <!-- Desktop sidebar -->
-<aside class="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col lg:border-r lg:border-gray-200 lg:bg-white lg:pt-16">
+<aside class="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col lg:border-r lg:border-gray-200 lg:bg-white">
+    <div class="flex h-16 flex-shrink-0 items-center px-4 border-b border-gray-200">
+        <a href="/" class="text-xl font-bold text-primary-600">
+            {{ app_name }}
+        </a>
+    </div>
     {% include "components/sidebar_content.html" %}
 </aside>

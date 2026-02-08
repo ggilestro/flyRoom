@@ -119,7 +119,6 @@
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock ID</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Genotype</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
-                                <th scope="col" class="relative px-6 py-3"><span class="sr-only">Actions</span></th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -132,9 +131,6 @@
                                         <div class="text-sm text-gray-500 max-w-md truncate" x-text="stock.genotype || '-'"></div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="stock.position || '-'"></td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <a :href="'/stocks/' + stock.id" class="text-primary-600 hover:text-primary-900">View</a>
-                                    </td>
                                 </tr>
                             </template>
                         </tbody>
