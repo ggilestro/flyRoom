@@ -226,6 +226,10 @@ class StockService:
             .filter(Stock.is_active == params.is_active)
         )
 
+        # Exclude current tenant's stocks (for exchange/browse)
+        if params.exclude_own:
+            query = query.filter(Stock.tenant_id != self.tenant_id)
+
         # Text search
         if params.query:
             search_term = f"%{params.query}%"

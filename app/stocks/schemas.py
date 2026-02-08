@@ -152,6 +152,7 @@ class StockSearchParams(BaseModel):
     owner_id: str | None = None
     visibility: StockVisibility | None = None
     scope: StockScope = StockScope.LAB
+    exclude_own: bool = False  # Exclude current tenant's stocks (for exchange)
     is_active: bool = True
     page: int = Field(1, ge=1)
     page_size: int = Field(20, ge=1, le=100)

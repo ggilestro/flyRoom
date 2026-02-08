@@ -72,8 +72,8 @@
                             <td class="px-6 py-4">
                                 <div class="text-sm text-gray-900 max-w-md truncate" x-text="stock.genotype"></div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="stock.source || '-'"></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="stock.tenant_name || 'Unknown'"></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="stock.external_source || stock.repository || '-'"></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="stock.tenant?.name || 'Unknown'"></td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <button @click="openRequestModal(stock)"
                                         class="text-primary-600 hover:text-primary-900"
@@ -179,7 +179,8 @@ function stockExchange() {
                 const params = new URLSearchParams({
                     page: this.page,
                     page_size: this.pageSize,
-                    scope: this.scope
+                    scope: this.scope,
+                    exclude_own: true
                 });
                 if (this.query) params.append('query', this.query);
 
