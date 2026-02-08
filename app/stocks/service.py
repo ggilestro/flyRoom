@@ -261,14 +261,46 @@ class StockService:
         if params.tag_ids and params.scope == StockScope.LAB:
             query = query.filter(Stock.tags.any(Tag.id.in_(params.tag_ids)))
 
-        # Count total
+        # Count total before pagination
         total = query.count()
+
+        # Dynamic sorting
+        sort_field = params.sort_by or "modified_at"
+
+        # For last_flip_at, we need to join with FlipEvent table
+        if sort_field == "last_flip_at":
+            # Add subquery for last flip date
+            # Note: FlipEvent doesn't have tenant_id, so we join through Stock
+            last_flip_subq = (
+                self.db.query(FlipEvent.stock_id, func.max(FlipEvent.flipped_at).label("last_flip"))
+                .join(Stock, FlipEvent.stock_id == Stock.id)
+                .filter(Stock.tenant_id == self.tenant_id)
+                .group_by(FlipEvent.stock_id)
+                .subquery()
+            )
+
+            query = query.outerjoin(last_flip_subq, Stock.id == last_flip_subq.c.stock_id)
+            sort_column = last_flip_subq.c.last_flip
+        else:
+            # Regular column sorting
+            sort_column_map = {
+                "stock_id": Stock.stock_id,
+                "genotype": Stock.genotype,
+                "repository": Stock.repository,
+                "created_at": Stock.created_at,
+                "modified_at": Stock.modified_at,
+            }
+            sort_column = sort_column_map.get(sort_field, Stock.modified_at)
+
+        # Apply sort order
+        if params.sort_order == "asc":
+            query = query.order_by(sort_column.asc())
+        else:
+            query = query.order_by(sort_column.desc())
 
         # Pagination
         offset = (params.page - 1) * params.page_size
-        stocks = (
-            query.order_by(Stock.modified_at.desc()).offset(offset).limit(params.page_size).all()
-        )
+        stocks = query.offset(offset).limit(params.page_size).all()
 
         pages = (total + params.page_size - 1) // params.page_size
 
@@ -599,6 +631,181 @@ class StockService:
             "total_stocks": total_stocks,
             "total_tags": total_tags,
         }
+
+    # Bulk operations
+
+    def bulk_update_visibility(self, data, user_id: str):
+        """Bulk update stock visibility.
+
+        Args:
+            data: BulkVisibilityUpdate with stock_ids and visibility.
+            user_id: User performing the update.
+
+        Returns:
+            dict: Update results with counts.
+        """
+        from app.stocks.schemas import BulkUpdateResponse
+
+        updated_count = 0
+        errors = []
+
+        for stock_id in data.stock_ids:
+            stock = self.get_stock(stock_id)
+            if stock:
+                stock.visibility = data.visibility
+                stock.modified_by_id = user_id
+                updated_count += 1
+            else:
+                errors.append(f"Stock {stock_id} not found")
+
+        self.db.commit()
+        return BulkUpdateResponse(
+            updated_count=updated_count, failed_count=len(errors), errors=errors
+        )
+
+    def bulk_add_tags(self, data, user_id: str):
+        """Bulk add tags to stocks.
+
+        Args:
+            data: BulkTagsUpdate with stock_ids and tag_ids.
+            user_id: User performing the update.
+
+        Returns:
+            dict: Update results with counts.
+        """
+        from app.stocks.schemas import BulkUpdateResponse
+
+        updated_count = 0
+        errors = []
+
+        # Get tags once
+        tags = (
+            self.db.query(Tag)
+            .filter(Tag.id.in_(data.tag_ids), Tag.tenant_id == self.tenant_id)
+            .all()
+        )
+
+        if not tags:
+            return BulkUpdateResponse(
+                updated_count=0, failed_count=len(data.stock_ids), errors=["No valid tags found"]
+            )
+
+        for stock_id in data.stock_ids:
+            stock = self.get_stock(stock_id)
+            if stock:
+                # Add tags that don't already exist on this stock
+                existing_tag_ids = {t.id for t in stock.tags}
+                new_tags = [t for t in tags if t.id not in existing_tag_ids]
+                stock.tags.extend(new_tags)
+                stock.modified_by_id = user_id
+                updated_count += 1
+            else:
+                errors.append(f"Stock {stock_id} not found")
+
+        self.db.commit()
+        return BulkUpdateResponse(
+            updated_count=updated_count, failed_count=len(errors), errors=errors
+        )
+
+    def bulk_remove_tags(self, data, user_id: str):
+        """Bulk remove tags from stocks.
+
+        Args:
+            data: BulkTagsUpdate with stock_ids and tag_ids.
+            user_id: User performing the update.
+
+        Returns:
+            dict: Update results with counts.
+        """
+        from app.stocks.schemas import BulkUpdateResponse
+
+        updated_count = 0
+        errors = []
+
+        for stock_id in data.stock_ids:
+            stock = self.get_stock(stock_id)
+            if stock:
+                # Remove specified tags
+                stock.tags = [t for t in stock.tags if t.id not in data.tag_ids]
+                stock.modified_by_id = user_id
+                updated_count += 1
+            else:
+                errors.append(f"Stock {stock_id} not found")
+
+        self.db.commit()
+        return BulkUpdateResponse(
+            updated_count=updated_count, failed_count=len(errors), errors=errors
+        )
+
+    def bulk_change_tray(self, data, user_id: str):
+        """Bulk change tray for stocks.
+
+        Args:
+            data: BulkTrayUpdate with stock_ids and tray_id.
+            user_id: User performing the update.
+
+        Returns:
+            dict: Update results with counts.
+        """
+        from app.stocks.schemas import BulkUpdateResponse
+
+        updated_count = 0
+        errors = []
+
+        # Validate tray if provided
+        if data.tray_id:
+            tray = (
+                self.db.query(Tray)
+                .filter(Tray.id == data.tray_id, Tray.tenant_id == self.tenant_id)
+                .first()
+            )
+            if not tray:
+                return BulkUpdateResponse(
+                    updated_count=0, failed_count=len(data.stock_ids), errors=["Tray not found"]
+                )
+
+        for stock_id in data.stock_ids:
+            stock = self.get_stock(stock_id)
+            if stock:
+                stock.tray_id = data.tray_id
+                stock.modified_by_id = user_id
+                updated_count += 1
+            else:
+                errors.append(f"Stock {stock_id} not found")
+
+        self.db.commit()
+        return BulkUpdateResponse(
+            updated_count=updated_count, failed_count=len(errors), errors=errors
+        )
+
+    def bulk_change_owner(self, data, user_id: str):
+        """Bulk change owner for stocks.
+
+        Args:
+            data: BulkOwnerUpdate with stock_ids and owner_id.
+            user_id: User performing the update.
+
+        Returns:
+            dict: Update results with counts.
+        """
+        from app.stocks.schemas import BulkUpdateResponse
+
+        updated_count = 0
+        errors = []
+
+        for stock_id in data.stock_ids:
+            stock = self.get_stock(stock_id)
+            if stock:
+                stock.owner_id = data.owner_id
+                stock.modified_by_id = user_id
+                updated_count += 1
+            else:
+                errors.append(f"Stock {stock_id} not found")
+
+        self.db.commit()
+        return BulkUpdateResponse(
+            updated_count=updated_count, failed_count=len(errors), errors=errors
+        )
 
 
 def get_stock_service(db: Session, tenant_id: str) -> StockService:

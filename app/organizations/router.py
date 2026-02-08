@@ -283,6 +283,7 @@ async def get_tenant_label_settings(
         default_label_format=tenant.default_label_format,
         default_code_type=tenant.default_code_type,
         default_copies=tenant.default_copies,
+        default_orientation=tenant.default_orientation,
     )
 
 
@@ -306,6 +307,15 @@ async def update_tenant_label_settings(
     tenant.default_label_format = data.default_label_format
     tenant.default_code_type = data.default_code_type
     tenant.default_copies = data.default_copies
+    tenant.default_orientation = data.default_orientation
+
+    # Increment config_version on all agents when tenant settings change
+    from app.db.models import PrintAgent
+
+    db.query(PrintAgent).filter(PrintAgent.tenant_id == str(tenant_id)).update(
+        {PrintAgent.config_version: PrintAgent.config_version + 1}
+    )
+
     db.commit()
     db.refresh(tenant)
 
@@ -313,6 +323,7 @@ async def update_tenant_label_settings(
         default_label_format=tenant.default_label_format,
         default_code_type=tenant.default_code_type,
         default_copies=tenant.default_copies,
+        default_orientation=tenant.default_orientation,
     )
 
 

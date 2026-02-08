@@ -1,17 +1,23 @@
 """Labels API routes."""
 
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 
 from app.db.models import PrintJobStatus
 from app.dependencies import CurrentTenantId, CurrentUserId, get_db
 from app.labels.print_service import PrintService, get_print_service
 from app.labels.schemas import (
+    AgentPairRequest,
+    AgentPairResponse,
+    PairingSessionResponse,
+    PrintAgentConfigResponse,
     PrintAgentCreate,
     PrintAgentHeartbeat,
+    PrintAgentHeartbeatResponse,
     PrintAgentResponse,
     PrintAgentUpdate,
     PrintAgentWithKey,
@@ -429,6 +435,10 @@ async def create_print_agent(
         is_active=agent.is_active,
         created_at=agent.created_at,
         is_online=False,
+        poll_interval=agent.poll_interval,
+        log_level=agent.log_level,
+        available_printers=agent.available_printers,
+        config_version=agent.config_version,
         api_key=api_key,
     )
 
@@ -459,6 +469,10 @@ async def list_print_agents(
             is_active=a.is_active,
             created_at=a.created_at,
             is_online=svc.is_agent_online(a),
+            poll_interval=a.poll_interval,
+            log_level=a.log_level,
+            available_printers=a.available_printers,
+            config_version=a.config_version,
         )
         for a in agents
     ]
@@ -497,6 +511,10 @@ async def get_print_agent(
         is_active=agent.is_active,
         created_at=agent.created_at,
         is_online=svc.is_agent_online(agent),
+        poll_interval=agent.poll_interval,
+        log_level=agent.log_level,
+        available_printers=agent.available_printers,
+        config_version=agent.config_version,
     )
 
 
@@ -535,6 +553,10 @@ async def update_print_agent(
         is_active=agent.is_active,
         created_at=agent.created_at,
         is_online=svc.is_agent_online(agent),
+        poll_interval=agent.poll_interval,
+        log_level=agent.log_level,
+        available_printers=agent.available_printers,
+        config_version=agent.config_version,
     )
 
 
@@ -574,6 +596,195 @@ async def check_agents_online(
         dict: Online status.
     """
     return {"has_online_agent": svc.has_online_agent()}
+
+
+# ============================================================================
+# Agent Download Endpoint
+# ============================================================================
+
+# Mapping of platform names to binary file names and content types
+_AGENT_DOWNLOADS = {
+    "windows": {"filename": "FlyPrint.exe", "content_type": "application/octet-stream"},
+    "macos": {"filename": "FlyPrint.zip", "content_type": "application/zip"},
+    "linux": {"filename": "FlyPrint", "content_type": "application/octet-stream"},
+}
+
+_DOWNLOADS_DIR = Path(__file__).parent.parent / "static" / "downloads"
+
+
+@router.get("/agent/download/{platform_name}")
+async def download_agent(platform_name: str):
+    """Download the FlyPrint agent binary for a platform.
+
+    Args:
+        platform_name: One of 'windows', 'macos', 'linux'.
+
+    Returns:
+        FileResponse: The binary file.
+
+    Raises:
+        HTTPException: If platform invalid or binary not available.
+    """
+    if platform_name not in _AGENT_DOWNLOADS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid platform. Choose from: {', '.join(_AGENT_DOWNLOADS.keys())}",
+        )
+
+    info = _AGENT_DOWNLOADS[platform_name]
+    file_path = _DOWNLOADS_DIR / platform_name / info["filename"]
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"FlyPrint binary for {platform_name} is not yet available. "
+            "Please install manually using pip: pip install flyprint",
+        )
+
+    return FileResponse(
+        path=str(file_path),
+        filename=info["filename"],
+        media_type=info["content_type"],
+    )
+
+
+@router.get("/agent/download-info")
+async def get_download_info():
+    """Get information about available FlyPrint downloads.
+
+    Returns:
+        dict: Available platforms and their download status.
+    """
+    platforms = {}
+    for plat, info in _AGENT_DOWNLOADS.items():
+        file_path = _DOWNLOADS_DIR / plat / info["filename"]
+        platforms[plat] = {
+            "filename": info["filename"],
+            "available": file_path.exists(),
+            "size_bytes": file_path.stat().st_size if file_path.exists() else None,
+        }
+    return {"platforms": platforms}
+
+
+# ============================================================================
+# Pairing Endpoints
+# ============================================================================
+
+
+@router.post("/pairing", response_model=PairingSessionResponse)
+async def create_pairing_session(
+    request: Request,
+    tenant_id: CurrentTenantId,
+):
+    """Create a pairing session for a new agent.
+
+    Admin clicks "Add Agent" to start pairing. Captures admin's IP
+    for zero-config matching. Agent name will come from the agent's
+    hostname during pairing.
+
+    Args:
+        request: HTTP request (for IP extraction).
+        tenant_id: Current tenant ID.
+
+    Returns:
+        PairingSessionResponse: Session with code and ID for polling.
+    """
+    admin_ip = request.client.host if request.client else ""
+    session = PrintService.create_pairing_session(
+        tenant_id=str(tenant_id),
+        admin_ip=admin_ip,
+    )
+    return PairingSessionResponse(
+        session_id=session["id"],
+        code=session["code"],
+        status=session["status"],
+    )
+
+
+@router.get("/pairing/{session_id}", response_model=PairingSessionResponse)
+async def get_pairing_status(
+    session_id: str,
+    tenant_id: CurrentTenantId,
+):
+    """Poll pairing session status.
+
+    UI polls this every 2 seconds to check if agent has paired.
+
+    Args:
+        session_id: Pairing session ID.
+        tenant_id: Current tenant ID.
+
+    Returns:
+        PairingSessionResponse: Current session status.
+
+    Raises:
+        HTTPException: If session not found.
+    """
+    session = PrintService.get_pairing_session(session_id)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pairing session not found or expired",
+        )
+
+    # Verify tenant owns this session
+    if session["tenant_id"] != str(tenant_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pairing session not found",
+        )
+
+    return PairingSessionResponse(
+        session_id=session["id"],
+        code=session["code"],
+        status=session["status"],
+        agent_id=session["agent_id"],
+        api_key=session["api_key"],
+        agent_name=session["agent_name"],
+    )
+
+
+@router.post("/agent/pair", response_model=AgentPairResponse)
+async def agent_pair(
+    data: AgentPairRequest,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Agent pairing endpoint (unauthenticated).
+
+    Called by `flyprint pair` command. Matches to a waiting pairing
+    session by code or by IP address.
+
+    Args:
+        data: Pairing request with optional code and hostname.
+        request: HTTP request (for IP extraction).
+        db: Database session.
+
+    Returns:
+        AgentPairResponse: API key and agent info on success.
+
+    Raises:
+        HTTPException: If no matching session found.
+    """
+    agent_ip = request.client.host if request.client else ""
+    svc = PrintService(db, tenant_id="")
+
+    result = svc.complete_pairing(
+        code=data.code,
+        agent_ip=agent_ip,
+        hostname=data.hostname,
+        available_printers=data.available_printers,
+    )
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No matching pairing session found. "
+            "Make sure 'Add Agent' is active in the web UI, "
+            "or provide the pairing code.",
+        )
+
+    return AgentPairResponse(**result)
 
 
 # ============================================================================
@@ -708,26 +919,67 @@ async def get_job_statistics(
 # Agent API Endpoints (For print agents to call)
 # ============================================================================
 
+# Latest FlyPrint agent version - update when releasing new builds
+LATEST_AGENT_VERSION = "0.1.0"
 
-@router.post("/agent/heartbeat")
+
+@router.post("/agent/heartbeat", response_model=PrintAgentHeartbeatResponse)
 async def agent_heartbeat(
     data: PrintAgentHeartbeat,
     auth: Annotated[tuple[PrintService, str], Depends(get_agent_from_api_key)],
 ):
     """Agent heartbeat - updates last_seen and optionally printer info.
 
-    Called by agents to indicate they are online.
+    Called by agents to indicate they are online. Returns config_version
+    so agents can detect when config has changed.
 
     Args:
         data: Heartbeat data.
         auth: Authenticated agent.
 
     Returns:
-        dict: Success status.
+        PrintAgentHeartbeatResponse: Status and config_version.
     """
     svc, agent_id = auth
-    svc.update_agent_heartbeat(agent_id, printer_name=data.printer_name)
-    return {"status": "ok"}
+    agent = svc.update_agent_heartbeat(
+        agent_id,
+        printer_name=data.printer_name,
+        available_printers=data.available_printers,
+    )
+    config_version = agent.config_version if agent else 1
+    return PrintAgentHeartbeatResponse(
+        status="ok",
+        config_version=config_version,
+        latest_agent_version=LATEST_AGENT_VERSION,
+    )
+
+
+@router.get("/agent/config", response_model=PrintAgentConfigResponse)
+async def get_agent_config(
+    auth: Annotated[tuple[PrintService, str], Depends(get_agent_from_api_key)],
+):
+    """Get merged config for the authenticated agent.
+
+    Returns tenant-level defaults merged with agent-specific settings.
+    Agents fetch this when config_version changes.
+
+    Args:
+        auth: Authenticated agent.
+
+    Returns:
+        PrintAgentConfigResponse: Merged configuration.
+
+    Raises:
+        HTTPException: If config not found.
+    """
+    svc, agent_id = auth
+    config = svc.get_agent_config(agent_id)
+    if not config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent config not found",
+        )
+    return PrintAgentConfigResponse(**config)
 
 
 @router.get("/agent/jobs", response_model=list[PrintJobResponse])

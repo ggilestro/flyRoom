@@ -1,11 +1,12 @@
 """Print job and agent service layer."""
 
 import secrets
+import string
 from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.models import PrintAgent, PrintJob, PrintJobStatus, Stock
+from app.db.models import PrintAgent, PrintJob, PrintJobStatus, Stock, Tenant
 from app.labels.schemas import (
     LabelData,
     PrintAgentCreate,
@@ -13,6 +14,35 @@ from app.labels.schemas import (
     PrintJobCreate,
     PrintJobLabels,
 )
+
+# ============================================================================
+# In-Memory Pairing Session Store (5-minute TTL)
+# ============================================================================
+
+_pairing_sessions: dict[str, dict] = {}
+
+PAIRING_TTL_SECONDS = 300  # 5 minutes
+
+
+def _generate_pairing_code() -> str:
+    """Generate a 6-character alphanumeric pairing code.
+
+    Returns:
+        str: Uppercase alphanumeric code like 'AB3K9X'.
+    """
+    # Reason: Exclude confusing chars (0/O, 1/I/L) for readability
+    alphabet = string.ascii_uppercase.replace("O", "").replace("I", "").replace("L", "")
+    digits = string.digits.replace("0", "").replace("1", "")
+    charset = alphabet + digits
+    return "".join(secrets.choice(charset) for _ in range(6))
+
+
+def _cleanup_expired_sessions() -> None:
+    """Remove expired pairing sessions from memory."""
+    now = datetime.utcnow()
+    expired = [sid for sid, s in _pairing_sessions.items() if s["expires_at"] < now]
+    for sid in expired:
+        del _pairing_sessions[sid]
 
 
 class PrintService:
@@ -54,6 +84,8 @@ class PrintService:
             api_key=api_key,
             printer_name=data.printer_name,
             label_format=data.label_format,
+            poll_interval=data.poll_interval,
+            log_level=data.log_level,
         )
         self.db.add(agent)
         self.db.commit()
@@ -108,6 +140,8 @@ class PrintService:
     def update_agent(self, agent_id: str, data: PrintAgentUpdate) -> PrintAgent | None:
         """Update a print agent.
 
+        Increments config_version when config-relevant fields change.
+
         Args:
             agent_id: Agent UUID.
             data: Update data.
@@ -120,8 +154,14 @@ class PrintService:
             return None
 
         update_data = data.model_dump(exclude_unset=True)
+        config_fields = {"printer_name", "label_format", "poll_interval", "log_level"}
+        config_changed = any(k in config_fields for k in update_data)
+
         for key, value in update_data.items():
             setattr(agent, key, value)
+
+        if config_changed:
+            agent.config_version += 1
 
         self.db.commit()
         self.db.refresh(agent)
@@ -145,13 +185,17 @@ class PrintService:
         return True
 
     def update_agent_heartbeat(
-        self, agent_id: str, printer_name: str | None = None
+        self,
+        agent_id: str,
+        printer_name: str | None = None,
+        available_printers: list[dict] | None = None,
     ) -> PrintAgent | None:
         """Update agent last_seen timestamp (heartbeat).
 
         Args:
             agent_id: Agent UUID.
             printer_name: Optional printer name update.
+            available_printers: Optional list of available printers from agent.
 
         Returns:
             PrintAgent | None: Updated agent if found.
@@ -163,6 +207,8 @@ class PrintService:
         agent.last_seen = datetime.utcnow()
         if printer_name is not None:
             agent.printer_name = printer_name
+        if available_printers is not None:
+            agent.available_printers = available_printers
 
         self.db.commit()
         self.db.refresh(agent)
@@ -199,6 +245,160 @@ class PrintService:
             .first()
             is not None
         )
+
+    def get_agent_config(self, agent_id: str) -> dict | None:
+        """Get merged config for an agent (tenant defaults + agent settings).
+
+        Args:
+            agent_id: Agent UUID.
+
+        Returns:
+            dict | None: Merged config or None if agent not found.
+        """
+        agent = self.db.query(PrintAgent).filter(PrintAgent.id == agent_id).first()
+        if not agent:
+            return None
+
+        tenant = self.db.query(Tenant).filter(Tenant.id == agent.tenant_id).first()
+        if not tenant:
+            return None
+
+        return {
+            "printer_name": agent.printer_name,
+            "label_format": tenant.default_label_format,
+            "code_type": tenant.default_code_type,
+            "copies": tenant.default_copies,
+            "orientation": tenant.default_orientation,
+            "poll_interval": agent.poll_interval,
+            "log_level": agent.log_level,
+            "config_version": agent.config_version,
+        }
+
+    # ========================================================================
+    # Pairing Methods
+    # ========================================================================
+
+    @staticmethod
+    def create_pairing_session(tenant_id: str, admin_ip: str) -> dict:
+        """Create a new pairing session.
+
+        Args:
+            tenant_id: Tenant UUID.
+            admin_ip: IP address of the admin's browser.
+
+        Returns:
+            dict: Created pairing session.
+        """
+        _cleanup_expired_sessions()
+
+        session_id = secrets.token_urlsafe(16)
+        code = _generate_pairing_code()
+
+        session = {
+            "id": session_id,
+            "code": code,
+            "tenant_id": tenant_id,
+            "admin_ip": admin_ip,
+            "expires_at": datetime.utcnow() + timedelta(seconds=PAIRING_TTL_SECONDS),
+            "status": "waiting",
+            "agent_id": None,
+            "api_key": None,
+            "agent_name": None,
+        }
+        _pairing_sessions[session_id] = session
+        return session
+
+    @staticmethod
+    def get_pairing_session(session_id: str) -> dict | None:
+        """Get a pairing session by ID.
+
+        Args:
+            session_id: Session ID.
+
+        Returns:
+            dict | None: Session if found and not expired.
+        """
+        _cleanup_expired_sessions()
+        session = _pairing_sessions.get(session_id)
+        if not session:
+            return None
+        if session["expires_at"] < datetime.utcnow():
+            session["status"] = "expired"
+        return session
+
+    def complete_pairing(
+        self,
+        code: str | None,
+        agent_ip: str,
+        hostname: str | None = None,
+        available_printers: list[dict] | None = None,
+    ) -> dict | None:
+        """Match a pairing request to a session and create the agent.
+
+        Tries code-based match first (if code provided), then IP-based.
+
+        Args:
+            code: Optional pairing code.
+            agent_ip: IP address of the agent machine.
+            hostname: Optional hostname for agent name.
+            available_printers: Optional list of available printers.
+
+        Returns:
+            dict | None: Pairing result with api_key, or None if no match.
+        """
+        _cleanup_expired_sessions()
+        now = datetime.utcnow()
+
+        matched_session = None
+
+        if code:
+            # Code-based matching
+            code_upper = code.upper()
+            for session in _pairing_sessions.values():
+                if (
+                    session["status"] == "waiting"
+                    and session["code"] == code_upper
+                    and session["expires_at"] > now
+                ):
+                    matched_session = session
+                    break
+        else:
+            # IP-based matching
+            for session in _pairing_sessions.values():
+                if (
+                    session["status"] == "waiting"
+                    and session["admin_ip"] == agent_ip
+                    and session["expires_at"] > now
+                ):
+                    matched_session = session
+                    break
+
+        if not matched_session:
+            return None
+
+        # Create the agent in this tenant's context
+        self.tenant_id = matched_session["tenant_id"]
+        agent_name = hostname or "FlyPush Printing Agent"
+        agent_data = PrintAgentCreate(name=agent_name)
+        agent, api_key = self.create_agent(agent_data)
+
+        # Update available_printers if provided
+        if available_printers:
+            agent.available_printers = available_printers
+            self.db.commit()
+            self.db.refresh(agent)
+
+        # Mark session as completed
+        matched_session["status"] = "completed"
+        matched_session["agent_id"] = agent.id
+        matched_session["api_key"] = api_key
+        matched_session["agent_name"] = agent_name
+
+        return {
+            "api_key": api_key,
+            "agent_name": agent_name,
+            "agent_id": agent.id,
+        }
 
     # ========================================================================
     # Print Job Methods

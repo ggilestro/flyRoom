@@ -10,6 +10,11 @@ from sqlalchemy.orm import Session
 from app.db.models import StockOrigin, StockRepository, StockVisibility
 from app.dependencies import CurrentTenantId, CurrentUser, get_db
 from app.stocks.schemas import (
+    BulkOwnerUpdate,
+    BulkTagsUpdate,
+    BulkTrayUpdate,
+    BulkUpdateResponse,
+    BulkVisibilityUpdate,
     StockCreate,
     StockListResponse,
     StockResponse,
@@ -49,6 +54,8 @@ async def list_stocks(
     is_active: bool = Query(True),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    sort_by: str | None = Query(None, description="Field to sort by"),
+    sort_order: str = Query("desc", description="Sort order (asc or desc)"),
 ):
     """List stocks with filtering and pagination.
 
@@ -65,6 +72,8 @@ async def list_stocks(
         is_active: Filter by active status.
         page: Page number.
         page_size: Items per page.
+        sort_by: Field to sort by.
+        sort_order: Sort order (asc or desc).
 
     Returns:
         StockListResponse: Paginated stock list.
@@ -81,6 +90,8 @@ async def list_stocks(
         is_active=is_active,
         page=page,
         page_size=page_size,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
     return service.list_stocks(params)
 
@@ -134,7 +145,7 @@ async def get_repository_metadata(
     """
     if repository == StockRepository.BDSC:
         try:
-            from app.plugins.bdsc.client import get_bdsc_plugin
+            from app.plugins.flybase.client import get_bdsc_plugin
 
             plugin = get_bdsc_plugin()
             stock_data = await plugin.get_details(repo_stock_id)
@@ -390,3 +401,101 @@ async def delete_tag(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Tag not found",
         )
+
+
+# Bulk Operations
+
+
+@router.post("/bulk/visibility", response_model=BulkUpdateResponse)
+async def bulk_update_visibility(
+    data: BulkVisibilityUpdate,
+    service: Annotated[StockService, Depends(get_service)],
+    current_user: CurrentUser,
+):
+    """Bulk update stock visibility.
+
+    Args:
+        data: Bulk visibility update data.
+        service: Stock service.
+        current_user: Current user.
+
+    Returns:
+        BulkUpdateResponse: Update results.
+    """
+    return service.bulk_update_visibility(data, current_user.id)
+
+
+@router.post("/bulk/add-tags", response_model=BulkUpdateResponse)
+async def bulk_add_tags(
+    data: BulkTagsUpdate,
+    service: Annotated[StockService, Depends(get_service)],
+    current_user: CurrentUser,
+):
+    """Bulk add tags to stocks.
+
+    Args:
+        data: Bulk tags update data.
+        service: Stock service.
+        current_user: Current user.
+
+    Returns:
+        BulkUpdateResponse: Update results.
+    """
+    return service.bulk_add_tags(data, current_user.id)
+
+
+@router.post("/bulk/remove-tags", response_model=BulkUpdateResponse)
+async def bulk_remove_tags(
+    data: BulkTagsUpdate,
+    service: Annotated[StockService, Depends(get_service)],
+    current_user: CurrentUser,
+):
+    """Bulk remove tags from stocks.
+
+    Args:
+        data: Bulk tags update data.
+        service: Stock service.
+        current_user: Current user.
+
+    Returns:
+        BulkUpdateResponse: Update results.
+    """
+    return service.bulk_remove_tags(data, current_user.id)
+
+
+@router.post("/bulk/change-tray", response_model=BulkUpdateResponse)
+async def bulk_change_tray(
+    data: BulkTrayUpdate,
+    service: Annotated[StockService, Depends(get_service)],
+    current_user: CurrentUser,
+):
+    """Bulk change tray for stocks.
+
+    Args:
+        data: Bulk tray update data.
+        service: Stock service.
+        current_user: Current user.
+
+    Returns:
+        BulkUpdateResponse: Update results.
+    """
+    return service.bulk_change_tray(data, current_user.id)
+
+
+@router.post("/bulk/change-owner", response_model=BulkUpdateResponse)
+async def bulk_change_owner(
+    data: BulkOwnerUpdate,
+    service: Annotated[StockService, Depends(get_service)],
+    current_user: CurrentUser,
+):
+    """Bulk change owner for stocks.
+
+    Args:
+        data: Bulk owner update data.
+        service: Stock service.
+        current_user: Current user.
+
+    Returns:
+        BulkUpdateResponse: Update results.
+    """
+    return service.bulk_change_owner(data, current_user.id)

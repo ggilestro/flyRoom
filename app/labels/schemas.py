@@ -28,6 +28,8 @@ class PrintAgentCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, description="Agent display name")
     printer_name: str | None = Field(None, max_length=100, description="CUPS printer name")
     label_format: str = Field("dymo_11352", description="Default label format")
+    poll_interval: int = Field(5, ge=1, le=60, description="Poll interval in seconds")
+    log_level: str = Field("INFO", description="Log level")
 
 
 class PrintAgentUpdate(BaseModel):
@@ -37,6 +39,8 @@ class PrintAgentUpdate(BaseModel):
     printer_name: str | None = None
     label_format: str | None = None
     is_active: bool | None = None
+    poll_interval: int | None = Field(None, ge=1, le=60)
+    log_level: str | None = Field(None, pattern="^(DEBUG|INFO|WARNING|ERROR)$")
 
 
 class PrintAgentResponse(BaseModel):
@@ -53,6 +57,10 @@ class PrintAgentResponse(BaseModel):
     is_online: bool = Field(
         default=False, description="Whether agent has been seen in last 60 seconds"
     )
+    poll_interval: int = 5
+    log_level: str = "INFO"
+    available_printers: list | None = None
+    config_version: int = 1
 
     model_config = {"from_attributes": True}
 
@@ -68,6 +76,60 @@ class PrintAgentHeartbeat(BaseModel):
 
     printer_name: str | None = None
     printer_status: str | None = None  # e.g., "ready", "offline", "paper_out"
+    available_printers: list[dict] | None = None
+
+
+class PrintAgentHeartbeatResponse(BaseModel):
+    """Schema for heartbeat response with config version."""
+
+    status: str = "ok"
+    config_version: int
+    latest_agent_version: str | None = None
+
+
+class PrintAgentConfigResponse(BaseModel):
+    """Schema for merged agent config (tenant + agent settings)."""
+
+    printer_name: str | None
+    label_format: str
+    code_type: str
+    copies: int
+    orientation: int
+    poll_interval: int
+    log_level: str
+    config_version: int
+
+
+# ============================================================================
+# Pairing Schemas
+# ============================================================================
+
+
+class PairingSessionResponse(BaseModel):
+    """Schema for pairing session status."""
+
+    session_id: str
+    code: str
+    status: str  # waiting | completed | expired
+    agent_id: str | None = None
+    api_key: str | None = None
+    agent_name: str | None = None
+
+
+class AgentPairRequest(BaseModel):
+    """Schema for agent pairing request."""
+
+    code: str | None = Field(None, description="6-char pairing code (fallback)")
+    hostname: str | None = Field(None, max_length=255, description="Agent machine hostname")
+    available_printers: list[dict] | None = None
+
+
+class AgentPairResponse(BaseModel):
+    """Schema for successful pairing response."""
+
+    api_key: str
+    agent_name: str
+    agent_id: str
 
 
 # ============================================================================

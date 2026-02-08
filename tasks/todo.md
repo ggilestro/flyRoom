@@ -1,3 +1,174 @@
+# AUR Package: flyprint-git
+
+## Current Task
+Create an AUR `-git` package for FlyPrint so it can be installed on Arch/Manjaro with `yay -S flyprint-git`.
+
+**Date Started:** 2026-02-08
+**Status:** In Progress
+
+## Files Created
+- `aur/flyprint-git/PKGBUILD` - Standard AUR `-git` PKGBUILD
+- `aur/flyprint-git/flyprint.desktop` - Freedesktop .desktop file for GUI entry
+- `aur/flyprint-git/flyprint.service` - Systemd user service for headless mode
+- `aur/flyprint-git/.SRCINFO` - Generated package metadata
+- `flyprint/assets/icon.png` - 256x256 application icon (green circle with white "P")
+
+## Checklist
+- [x] Create PKGBUILD with git source, build, and package steps
+- [x] Create .desktop file (validated with desktop-file-validate)
+- [x] Create systemd user service
+- [x] Generate .SRCINFO
+- [x] Generate icon.png (256x256)
+- [ ] Test build with `makepkg -si`
+- [ ] Verify `flyprint --version` works
+- [ ] Verify `flyprint-gui` launches
+- [ ] Verify .desktop shows in app menu
+
+---
+
+# FlyPrint Desktop App: Cross-Platform Packaging
+
+## Current Task
+Bundle the FlyPrint agent into a downloadable desktop app with system tray GUI, cross-platform printing, and PyInstaller build.
+
+**Date Started:** 2026-02-08
+**Date Completed:** 2026-02-08
+**Status:** Complete
+
+## Implementation Summary
+
+### Step 1: Cross-Platform Printing Abstraction
+- Created `flyprint/printing/` package with platform factory pattern
+- `base.py`: `PrinterBackend` Protocol defining the unified interface
+- `cups_printer.py`: Existing CUPS code (Linux/macOS) moved here
+- `win32_printer.py`: New Windows backend using win32print/ShellExecute
+- `__init__.py`: `get_printer()` factory returns CupsPrinter or Win32Printer based on platform
+- `flyprint/printer.py`: Now a backward-compat wrapper re-exporting from `flyprint.printing`
+
+### Step 2: System Tray GUI
+- Created `flyprint/gui/` package with pystray-based tray icon
+- `tray.py`: TrayApp class with status display (connected/disconnected icon), menu items (Start/Stop Agent, Test Connection, Open Web UI, Start on Login, Quit), update notification support
+- `pairing_dialog.py`: Tkinter first-run dialog with server URL + pairing code fields. Extracted `do_pairing()` shared between CLI and GUI
+
+### Step 3: GUI Entry Point
+- `flyprint/app_entry.py`: Loads config, checks for bundled config.json next to executable, shows pairing dialog if unconfigured, starts agent in background thread, runs tray on main thread
+- Added `flyprint gui` CLI command
+- Added `[project.gui-scripts] flyprint-gui` entry point in pyproject.toml
+
+### Step 4: Auto-Start on Login
+- `flyprint/gui/autostart.py`: Platform-specific autostart management
+- Linux: `.desktop` file in `~/.config/autostart/`
+- macOS: LaunchAgent plist in `~/Library/LaunchAgents/`
+- Windows: Registry key at `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+- Toggled via tray menu "Start on Login" checkbox
+
+### Step 5: PyInstaller Build
+- `flyprint/build/build.py`: Build script with icon generation, platform detection, hidden imports
+- Outputs single-file executables: `FlyPrint.exe` (Windows), `FlyPrint` (Linux), `FlyPrint.zip` (macOS)
+
+### Step 6: Distribution from Web App
+- Added `GET /api/labels/agent/download/{platform}` endpoint serving pre-built binaries
+- Added `GET /api/labels/agent/download-info` for checking available downloads
+- Added download buttons to settings.html (empty state and pairing wizard)
+- Created `app/static/downloads/` directory for binary storage
+
+### Step 7: Update Notification
+- Added `latest_agent_version` field to `PrintAgentHeartbeatResponse`
+- Added `LATEST_AGENT_VERSION` constant in router
+- Agent logs warning once when update available (CLI mode)
+- Tray app shows notification + "Update Available" menu item (GUI mode)
+
+### Step 8: Updated Dependencies
+- Added optional deps to `flyprint/pyproject.toml`: gui (pystray, Pillow), windows (pywin32), build (pyinstaller)
+
+## Files Created
+- `flyprint/printing/__init__.py`
+- `flyprint/printing/base.py`
+- `flyprint/printing/cups_printer.py`
+- `flyprint/printing/win32_printer.py`
+- `flyprint/gui/__init__.py`
+- `flyprint/gui/tray.py`
+- `flyprint/gui/pairing_dialog.py`
+- `flyprint/gui/autostart.py`
+- `flyprint/app_entry.py`
+- `flyprint/build/__init__.py`
+- `flyprint/build/build.py`
+
+## Files Modified
+- `flyprint/printer.py` - Refactored to backward-compat wrapper
+- `flyprint/cli.py` - Added `gui` command, refactored `pair` to use shared `do_pairing()`
+- `flyprint/agent.py` - Added `_check_update()` for version notification
+- `flyprint/pyproject.toml` - Added optional deps and gui-scripts entry
+- `app/labels/router.py` - Added download endpoints, latest_agent_version in heartbeat
+- `app/labels/schemas.py` - Added latest_agent_version to heartbeat response
+- `app/templates/settings.html` - Added download buttons to empty state and pairing wizard
+
+## Test Results
+- All 39 label tests pass
+- Full suite: 332 passed, 1 pre-existing failure (backup test), 10 pre-existing errors (DB connection)
+- All backward-compat imports verified
+
+---
+
+# Server-Side Print Agent Configuration + Zero-Config Pairing
+
+## Current Task
+Move agent operational config to server (managed from web UI) and add zero-config pairing via IP matching or 6-char code fallback.
+
+**Date Started:** 2026-02-07
+**Date Completed:** 2026-02-07
+**Status:** Complete
+
+## Implementation Summary
+
+### Database Migration (009)
+- Added `default_orientation` (Integer, default 0) to tenants table
+- Added `poll_interval`, `log_level`, `available_printers` (JSON), `config_version` to print_agents table
+
+### Zero-Config Pairing System
+- In-memory pairing session store with 5-minute TTL
+- IP-based auto-pairing: admin starts pairing in browser, agent on same network auto-matches
+- 6-char code fallback for different networks (excludes confusing chars O/I/L/0/1)
+- New endpoints: `POST /pairing`, `GET /pairing/{id}`, `POST /agent/pair` (unauthenticated)
+
+### Server-Managed Configuration
+- Config sync via `config_version` field in heartbeat response
+- Agent fetches `GET /agent/config` when version changes (merged tenant + agent settings)
+- Tenant settings (label_format, code_type, copies, orientation) + agent settings (printer_name, poll_interval, log_level)
+- Config version increments when admin changes tenant label settings or agent settings
+
+### Flyprint Agent Changes
+- Split config: core (server_url + api_key) in config.json, operational in cached_config.json
+- Backward-compatible with old all-in-one config format
+- New `flyprint pair [CODE] [--server URL]` command
+- Config fetch on startup + sync via heartbeat loop
+
+### Web UI Changes
+- Added Orientation dropdown to label settings
+- Replaced "Add Agent" modal with pairing wizard (spinner + code + polling)
+- Added Edit Agent modal with printer dropdown, poll_interval, log_level
+
+## Files Created
+- `alembic/versions/009_add_agent_config_and_pairing.py`
+
+## Files Modified
+- `app/db/models.py` - Tenant + PrintAgent columns
+- `app/labels/schemas.py` - New pairing/config schemas
+- `app/labels/print_service.py` - Pairing sessions + config sync
+- `app/labels/router.py` - Pairing + config endpoints
+- `app/organizations/schemas.py` - TenantLabelSettings orientation
+- `app/organizations/router.py` - Orientation in tenant label settings
+- `app/templates/settings.html` - Pairing wizard + edit modal + orientation
+- `flyprint/config.py` - Split config format
+- `flyprint/agent.py` - Config sync in heartbeat loop
+- `flyprint/cli.py` - `pair` command + simplified `configure`
+
+## Test Results
+- All 18 existing print service tests pass
+- Full suite: 332 passed, 1 pre-existing failure (backup test), 10 pre-existing errors (DB connection)
+
+---
+
 # Stock Flip Tracking Feature
 
 ## Current Task

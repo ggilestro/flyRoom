@@ -99,11 +99,18 @@
 
             <!-- Stocks in this tray -->
             <div class="bg-white shadow rounded-lg overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                     <h3 class="text-lg font-medium text-gray-900">
                         Stocks in this tray
                         <span class="ml-2 text-sm font-normal text-gray-500" x-text="'(' + (tray.stocks?.length || 0) + ' stocks)'"></span>
                     </h3>
+                    <a :href="'/stocks?tray=' + tray.id"
+                       class="inline-flex items-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
+                        View All Stocks
+                        <svg class="ml-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </a>
                 </div>
                 <template x-if="tray.stocks && tray.stocks.length > 0">
                     <table class="min-w-full divide-y divide-gray-200">

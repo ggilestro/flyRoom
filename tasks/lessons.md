@@ -46,6 +46,34 @@
 - **Pattern**: Return repository info in stats endpoint to populate UI filters
 - **Pattern**: Add `/repositories` endpoint for explicit listing of available repositories
 
+## 2026-02-07: Server-Managed Agent Config + Zero-Config Pairing
+
+### In-Memory Session Store Pattern
+- **Pattern**: For short-lived sessions (pairing, imports), use a module-level dict with TTL expiry
+- **Implementation**: `_pairing_sessions: dict[str, dict] = {}` with `_cleanup_expired_sessions()` called on create/get
+- **Benefit**: No external dependencies (no Redis needed), sufficient for single-instance deploys
+
+### Config Version Sync Pattern
+- **Pattern**: Use a `config_version` integer that increments on any config change
+- **Flow**: Heartbeat response includes version → agent compares → fetches full config if different
+- **Key detail**: Increment version on BOTH agent-level changes (printer_name, poll_interval) AND tenant-level changes (label_format, copies, orientation)
+- **Gotcha**: Must increment version on all agents when tenant-level settings change (bulk update query)
+
+### Split Config for Local Agent
+- **Pattern**: Core credentials (server_url + api_key) in `config.json`, operational settings cached in `cached_config.json`
+- **Benefit**: Server-pushed config changes don't overwrite auth credentials
+- **Backward compat**: `load()` handles old all-in-one format by checking if fields exist in main config before overlaying cache
+
+### Pairing Code Generation
+- **Pattern**: Exclude visually confusing characters (O/I/L/0/1) from random codes
+- **Character set**: `ABCDEFGHJKMNPQRSTUVWXYZ23456789` (26 chars)
+- **Length**: 6 chars gives ~300M combinations, more than sufficient for 5-min TTL sessions
+
+### Testing Without DB Connection
+- **Issue**: Cannot run `alembic upgrade head` locally when DB is in Docker (host 'db' not resolvable from host machine)
+- **Workaround**: Verify migration file loads via `importlib.util.spec_from_file_location()`, run actual migration on deploy
+- **Pattern**: Test flyprint agent modules separately since they don't depend on the app's DB
+
 ## 2026-02-05: Pre-commit and CI version mismatch
 
 **Problem**: Pre-commit hooks passed locally but CI failed with ruff linting errors.

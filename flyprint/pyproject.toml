@@ -19,6 +19,16 @@ dependencies = [
 cups = [
     "pycups>=2.0.0",
 ]
+gui = [
+    "pystray>=0.19.0",
+    "Pillow>=10.0.0",
+]
+windows = [
+    "pywin32>=306",
+]
+build = [
+    "pyinstaller>=6.0.0",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
@@ -28,6 +38,9 @@ dev = [
 
 [project.scripts]
 flyprint = "flyprint.cli:main"
+
+[project.gui-scripts]
+flyprint-gui = "flyprint.app_entry:main"
 
 [build-system]
 requires = ["hatchling"]

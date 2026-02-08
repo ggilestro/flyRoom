@@ -309,7 +309,7 @@
             <p class="text-sm text-gray-500 mb-4">Default settings for label printing (applies to all users in this lab)</p>
 
             <form @submit.prevent="saveSettings()" class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Label Format</label>
                         <select x-model="settings.default_label_format"
@@ -338,6 +338,16 @@
                             <option value="10">10</option>
                         </select>
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Orientation</label>
+                        <select x-model="settings.default_orientation"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                            <option value="0">0 (Portrait)</option>
+                            <option value="90">90 (Landscape)</option>
+                            <option value="180">180 (Reversed)</option>
+                            <option value="270">270 (Reversed Landscape)</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="flex justify-end">
                     <button type="submit" :disabled="saving"
@@ -364,6 +374,10 @@
                     <dt class="text-sm font-medium text-gray-500">Copies per Label</dt>
                     <dd class="text-sm text-gray-900" x-text="settings.default_copies"></dd>
                 </div>
+                <div class="py-3 flex justify-between">
+                    <dt class="text-sm font-medium text-gray-500">Orientation</dt>
+                    <dd class="text-sm text-gray-900" x-text="settings.default_orientation + '\u00B0'"></dd>
+                </div>
             </dl>
         </div>
         {% endif %}
@@ -375,7 +389,7 @@
                     <h2 class="text-lg font-medium text-gray-900">Print Agents</h2>
                     <p class="text-sm text-gray-500 mt-1">Manage local print clients for automatic label printing</p>
                 </div>
-                <button @click="showAddAgent = true"
+                <button @click="startPairing()"
                         class="inline-flex items-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
                     <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -392,8 +406,28 @@
                     </svg>
                     <h3 class="mt-2 text-sm font-medium text-gray-900">No print agents</h3>
                     <p class="mt-1 text-sm text-gray-500">Add a print agent to enable automatic label printing.</p>
+
+                    <!-- Download buttons -->
+                    <div class="mt-4 flex flex-wrap justify-center gap-2">
+                        <a href="/api/labels/agent/download/windows"
+                           class="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+                            Windows
+                        </a>
+                        <a href="/api/labels/agent/download/macos"
+                           class="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+                            macOS
+                        </a>
+                        <a href="/api/labels/agent/download/linux"
+                           class="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489.117.779.454 1.509 1.053 2.069.545.507 1.211.822 1.912.988.585.138 1.178.184 1.743.184.564 0 1.099-.046 1.579-.139.32-.062.616-.149.873-.269.086.082.176.16.27.232.528.413 1.12.65 1.73.65.61 0 1.2-.237 1.73-.65.094-.072.184-.15.27-.232.257.12.553.207.873.269.48.093 1.015.139 1.579.139.565 0 1.158-.046 1.743-.184.7-.166 1.367-.481 1.912-.988.599-.56.936-1.29 1.053-2.069.123-.805-.009-1.657-.287-2.489-.589-1.771-1.831-3.47-2.716-4.521-.75-1.067-.974-1.928-1.05-3.02-.065-1.491 1.056-5.965-3.17-6.298-.165-.013-.325-.021-.48-.021z"/></svg>
+                            Linux
+                        </a>
+                    </div>
+
                     <p class="mt-3 text-xs text-gray-400">
-                        Print agents run on local machines (e.g., Raspberry Pi) and connect to your printers.
+                        Download the FlyPrint app, or install via pip: <code class="bg-gray-100 px-1 rounded">pip install flyprint</code>
                     </p>
                 </div>
             </template>
@@ -405,7 +439,6 @@
                         <div class="border border-gray-200 rounded-lg p-4">
                             <div class="flex items-start justify-between">
                                 <div class="flex items-start gap-3">
-                                    <!-- Status indicator -->
                                     <div class="mt-0.5">
                                         <span :class="agent.is_online ? 'bg-green-400' : 'bg-gray-300'"
                                               class="inline-block h-3 w-3 rounded-full"></span>
@@ -422,7 +455,7 @@
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <button @click="editAgent(agent)" class="text-sm text-gray-500 hover:text-gray-700">Edit</button>
+                                    <button @click="openEditModal(agent)" class="text-sm text-gray-500 hover:text-gray-700">Edit</button>
                                     <button @click="deleteAgent(agent.id)" class="text-sm text-red-500 hover:text-red-700">Delete</button>
                                 </div>
                             </div>
@@ -431,90 +464,168 @@
                 </div>
             </template>
 
-            <!-- Add Agent Modal -->
-            <div x-show="showAddAgent" x-cloak
+            <!-- Pairing Wizard Modal -->
+            <div x-show="showPairing" x-cloak
                  class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
-                 @keydown.escape.window="showAddAgent = false">
-                <div class="bg-white rounded-lg shadow-xl max-w-md w-full" @click.away="showAddAgent = false">
+                 @keydown.escape.window="cancelPairing()">
+                <div class="bg-white rounded-lg shadow-xl max-w-md w-full" @click.away="cancelPairing()">
                     <div class="px-6 py-4 border-b">
                         <h3 class="text-lg font-medium text-gray-900">Add Print Agent</h3>
                     </div>
-                    <form @submit.prevent="createAgent()" class="p-6 space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Agent Name</label>
-                            <input type="text" x-model="newAgent.name" required placeholder="e.g., Lab Raspberry Pi"
-                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Printer Name (optional)</label>
-                            <input type="text" x-model="newAgent.printer_name" placeholder="CUPS printer name"
-                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
-                            <p class="mt-1 text-xs text-gray-500">Leave empty to use default printer</p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Label Format</label>
-                            <select x-model="newAgent.label_format"
-                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
-                                <option value="dymo_11352">Dymo 11352 (54x24mm)</option>
-                                <option value="dymo_99010">Dymo 99010 (89x28mm)</option>
-                                <option value="dymo_99012">Dymo 99012 (89x36mm)</option>
-                                <option value="brother_29mm">Brother 29mm</option>
-                                <option value="brother_62mm">Brother 62mm</option>
-                            </select>
-                        </div>
-                        <div class="pt-4 flex justify-end gap-3">
-                            <button type="button" @click="showAddAgent = false"
-                                    class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
-                                Cancel
-                            </button>
-                            <button type="submit" :disabled="creatingAgent"
-                                    class="rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 disabled:opacity-50">
-                                <span x-text="creatingAgent ? 'Creating...' : 'Create Agent'"></span>
-                            </button>
-                        </div>
-                    </form>
+                    <div class="p-6">
+                        <!-- Waiting for agent -->
+                        <template x-if="pairingStep === 'waiting'">
+                            <div class="space-y-6 text-center">
+                                <div class="flex justify-center">
+                                    <svg class="animate-spin h-10 w-10 text-primary-600" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </div>
+                                <p class="text-sm text-gray-700">Waiting for agent on your network...</p>
+
+                                <div class="bg-gray-50 rounded-md p-4 text-left space-y-3">
+                                    <p class="text-sm font-medium text-gray-700">1. Download and run FlyPrint on the agent machine:</p>
+                                    <div class="flex flex-wrap gap-2">
+                                        <a href="/api/labels/agent/download/windows"
+                                           class="inline-flex items-center gap-1 rounded bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                                            Windows
+                                        </a>
+                                        <a href="/api/labels/agent/download/macos"
+                                           class="inline-flex items-center gap-1 rounded bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                                            macOS
+                                        </a>
+                                        <a href="/api/labels/agent/download/linux"
+                                           class="inline-flex items-center gap-1 rounded bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                                            Linux
+                                        </a>
+                                    </div>
+
+                                    <p class="text-sm font-medium text-gray-700">2. Or if using pip, run:</p>
+                                    <div class="flex items-center gap-2">
+                                        <code class="flex-1 bg-gray-200 px-3 py-2 rounded text-sm font-mono">flyprint pair</code>
+                                        <button @click="navigator.clipboard.writeText('flyprint pair')"
+                                                class="text-xs text-gray-500 hover:text-gray-700 px-2 py-1">Copy</button>
+                                    </div>
+                                </div>
+
+                                <div class="border-t border-gray-200 pt-4">
+                                    <p class="text-xs text-gray-500 mb-2">Different network? Use this code:</p>
+                                    <div class="flex items-center justify-center gap-2">
+                                        <span class="text-2xl font-mono font-bold tracking-widest text-gray-900" x-text="pairingCode"></span>
+                                        <button @click="navigator.clipboard.writeText(pairingCode)"
+                                                class="text-xs text-gray-500 hover:text-gray-700 px-2 py-1">Copy</button>
+                                    </div>
+                                    <p class="text-xs text-gray-400 mt-1">Run: <code class="bg-gray-100 px-1 rounded">flyprint pair <span x-text="pairingCode"></span></code></p>
+                                </div>
+
+                                <button @click="cancelPairing()"
+                                        class="text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+                            </div>
+                        </template>
+
+                        <!-- Step 3: Success -->
+                        <template x-if="pairingStep === 'success'">
+                            <div class="space-y-4 text-center">
+                                <div class="flex justify-center">
+                                    <svg class="h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <h4 class="text-lg font-medium text-gray-900">Agent Paired!</h4>
+                                <p class="text-sm text-gray-600">
+                                    <span x-text="pairingAgentName || 'Agent'"></span> is now connected.
+                                    Run <code class="bg-gray-100 px-1 rounded">flyprint start</code> to begin printing.
+                                </p>
+                                <div class="pt-4">
+                                    <button @click="showPairing = false; loadAgents()"
+                                            class="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
+                                        Done
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Step: Expired -->
+                        <template x-if="pairingStep === 'expired'">
+                            <div class="space-y-4 text-center">
+                                <div class="flex justify-center">
+                                    <svg class="h-12 w-12 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <h4 class="text-lg font-medium text-gray-900">Pairing Expired</h4>
+                                <p class="text-sm text-gray-600">The pairing session timed out. Please try again.</p>
+                                <div class="pt-4 flex justify-center gap-3">
+                                    <button @click="cancelPairing()"
+                                            class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                                        Close
+                                    </button>
+                                    <button @click="createPairingSession()"
+                                            class="rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
+                                        Try Again
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
                 </div>
             </div>
 
-            <!-- API Key Modal (shown after creating agent) -->
-            <div x-show="showApiKey" x-cloak
-                 class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-                <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <!-- Edit Agent Modal -->
+            <div x-show="showEditModal" x-cloak
+                 class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+                 @keydown.escape.window="showEditModal = false">
+                <div class="bg-white rounded-lg shadow-xl max-w-md w-full" @click.away="showEditModal = false">
                     <div class="px-6 py-4 border-b">
-                        <h3 class="text-lg font-medium text-gray-900">Agent Created Successfully</h3>
+                        <h3 class="text-lg font-medium text-gray-900">Edit Agent</h3>
                     </div>
-                    <div class="p-6 space-y-4">
-                        <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                            <p class="text-sm text-yellow-800 font-medium">Important: Save this API key now!</p>
-                            <p class="text-xs text-yellow-700 mt-1">You won't be able to see it again.</p>
-                        </div>
+                    <form @submit.prevent="saveEditAgent()" class="p-6 space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">API Key</label>
-                            <div class="flex gap-2">
-                                <input type="text" :value="newAgentApiKey" readonly
-                                       class="flex-1 rounded-md border-gray-300 bg-gray-50 font-mono text-sm px-3 py-2 border">
-                                <button @click="copyApiKey()"
-                                        class="rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">
-                                    Copy
-                                </button>
+                            <label class="block text-sm font-medium text-gray-700">Printer</label>
+                            <template x-if="editData.available_printers && editData.available_printers.length > 0">
+                                <select x-model="editData.printer_name"
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                                    <option value="">(Default printer)</option>
+                                    <template x-for="p in editData.available_printers" :key="p.name">
+                                        <option :value="p.name" x-text="p.name + (p.is_default ? ' (default)' : '')"></option>
+                                    </template>
+                                </select>
+                            </template>
+                            <template x-if="!editData.available_printers || editData.available_printers.length === 0">
+                                <input type="text" x-model="editData.printer_name" placeholder="CUPS printer name"
+                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                            </template>
+                            <p class="mt-1 text-xs text-gray-500">Leave empty to use the default printer</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Poll Interval (sec)</label>
+                                <input type="number" x-model="editData.poll_interval" min="1" max="60"
+                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Log Level</label>
+                                <select x-model="editData.log_level"
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                                    <option value="DEBUG">DEBUG</option>
+                                    <option value="INFO">INFO</option>
+                                    <option value="WARNING">WARNING</option>
+                                    <option value="ERROR">ERROR</option>
+                                </select>
                             </div>
                         </div>
-                        <div class="bg-gray-50 rounded-md p-4">
-                            <p class="text-sm font-medium text-gray-700 mb-2">Setup Instructions</p>
-                            <ol class="text-xs text-gray-600 space-y-1 list-decimal list-inside">
-                                <li>Install flyprint: <code class="bg-gray-200 px-1 rounded">pip install flyprint</code></li>
-                                <li>Configure: <code class="bg-gray-200 px-1 rounded">flyprint configure --server {{ request.host_url|replace('http://', 'https://', 1)|replace('https://', 'https://', 1) }} --key YOUR_API_KEY</code></li>
-                                <li>Test: <code class="bg-gray-200 px-1 rounded">flyprint test</code></li>
-                                <li>Start: <code class="bg-gray-200 px-1 rounded">flyprint start</code></li>
-                            </ol>
-                        </div>
-                        <div class="pt-4 flex justify-end">
-                            <button @click="showApiKey = false; loadAgents()"
+                        <div class="pt-4 flex justify-end gap-3">
+                            <button type="button" @click="showEditModal = false"
+                                    class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                                Cancel
+                            </button>
+                            <button type="submit"
                                     class="rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
-                                Done
+                                Save
                             </button>
                         </div>
-                    </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -840,7 +951,8 @@ function labelSettings() {
         settings: {
             default_label_format: 'dymo_11352',
             default_code_type: 'qr',
-            default_copies: 1
+            default_copies: 1,
+            default_orientation: 0
         },
         labelFormats: [],
         saving: false,
@@ -858,6 +970,7 @@ function labelSettings() {
                     this.settings.default_label_format = data.default_label_format;
                     this.settings.default_code_type = data.default_code_type;
                     this.settings.default_copies = data.default_copies;
+                    this.settings.default_orientation = data.default_orientation || 0;
                 }
             } catch (error) {
                 console.error('Error loading label settings:', error);
@@ -875,7 +988,8 @@ function labelSettings() {
                     body: JSON.stringify({
                         default_label_format: this.settings.default_label_format,
                         default_code_type: this.settings.default_code_type,
-                        default_copies: parseInt(this.settings.default_copies)
+                        default_copies: parseInt(this.settings.default_copies),
+                        default_orientation: parseInt(this.settings.default_orientation)
                     })
                 });
                 if (response.ok) {
@@ -903,11 +1017,19 @@ function printAgentsSettings() {
     return {
         agents: [],
         loading: true,
-        showAddAgent: false,
-        showApiKey: false,
-        newAgent: { name: '', printer_name: '', label_format: 'dymo_11352' },
-        newAgentApiKey: '',
-        creatingAgent: false,
+
+        // Pairing wizard state
+        showPairing: false,
+        pairingStep: 'waiting',  // waiting | success | expired
+        pairingCode: '',
+        pairingSessionId: '',
+        pairingPollTimer: null,
+        pairingAgentName: '',
+
+        // Edit modal state
+        showEditModal: false,
+        editAgentId: '',
+        editData: { printer_name: '', poll_interval: 5, log_level: 'INFO', available_printers: null },
 
         async loadAgents() {
             this.loading = true;
@@ -923,53 +1045,110 @@ function printAgentsSettings() {
             }
         },
 
-        async createAgent() {
-            this.creatingAgent = true;
-            const messageDiv = document.getElementById('settings-message');
+        startPairing() {
+            this.showPairing = true;
+            this.pairingCode = '';
+            this.pairingSessionId = '';
+            this.pairingAgentName = '';
+            this.createPairingSession();
+        },
+
+        cancelPairing() {
+            if (this.pairingPollTimer) {
+                clearInterval(this.pairingPollTimer);
+                this.pairingPollTimer = null;
+            }
+            this.showPairing = false;
+        },
+
+        async createPairingSession() {
+            this.pairingStep = 'waiting';
             try {
-                const response = await fetch('/api/labels/agents', {
+                const response = await fetch('/api/labels/pairing', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify(this.newAgent)
                 });
                 if (response.ok) {
-                    const result = await response.json();
-                    this.newAgentApiKey = result.api_key;
-                    this.showAddAgent = false;
-                    this.showApiKey = true;
-                    this.newAgent = { name: '', printer_name: '', label_format: 'dymo_11352' };
+                    const data = await response.json();
+                    this.pairingSessionId = data.session_id;
+                    this.pairingCode = data.code;
+                    this.pairingStep = 'waiting';
+                    this.startPollingPairing();
                 } else {
                     const error = await response.json();
+                    const messageDiv = document.getElementById('settings-message');
                     messageDiv.innerHTML = `
                         <div class="mb-4 rounded-md bg-red-50 p-4">
-                            <p class="text-sm text-red-700">${error.detail || 'Failed to create agent'}</p>
+                            <p class="text-sm text-red-700">${error.detail || 'Failed to start pairing'}</p>
                         </div>`;
                 }
             } catch (error) {
-                console.error('Error creating agent:', error);
-            } finally {
-                this.creatingAgent = false;
+                console.error('Error creating pairing session:', error);
             }
         },
 
-        editAgent(agent) {
-            const newName = prompt('Agent name:', agent.name);
-            if (newName && newName !== agent.name) {
-                this.updateAgent(agent.id, { name: newName });
-            }
+        startPollingPairing() {
+            this.pairingPollTimer = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/labels/pairing/${this.pairingSessionId}`, {
+                        credentials: 'include'
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.status === 'completed') {
+                            clearInterval(this.pairingPollTimer);
+                            this.pairingPollTimer = null;
+                            this.pairingAgentName = data.agent_name || 'Agent';
+                            this.pairingStep = 'success';
+                        } else if (data.status === 'expired') {
+                            clearInterval(this.pairingPollTimer);
+                            this.pairingPollTimer = null;
+                            this.pairingStep = 'expired';
+                        }
+                    } else if (response.status === 404) {
+                        clearInterval(this.pairingPollTimer);
+                        this.pairingPollTimer = null;
+                        this.pairingStep = 'expired';
+                    }
+                } catch (error) {
+                    console.error('Error polling pairing:', error);
+                }
+            }, 2000);
         },
 
-        async updateAgent(agentId, data) {
+        openEditModal(agent) {
+            this.editAgentId = agent.id;
+            this.editData = {
+                printer_name: agent.printer_name || '',
+                poll_interval: agent.poll_interval || 5,
+                log_level: agent.log_level || 'INFO',
+                available_printers: agent.available_printers || null
+            };
+            this.showEditModal = true;
+        },
+
+        async saveEditAgent() {
             try {
-                const response = await fetch(`/api/labels/agents/${agentId}`, {
+                const response = await fetch(`/api/labels/agents/${this.editAgentId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify(data)
+                    body: JSON.stringify({
+                        printer_name: this.editData.printer_name || null,
+                        poll_interval: parseInt(this.editData.poll_interval),
+                        log_level: this.editData.log_level
+                    })
                 });
                 if (response.ok) {
+                    this.showEditModal = false;
                     await this.loadAgents();
+                } else {
+                    const error = await response.json();
+                    const messageDiv = document.getElementById('settings-message');
+                    messageDiv.innerHTML = `
+                        <div class="mb-4 rounded-md bg-red-50 p-4">
+                            <p class="text-sm text-red-700">${error.detail || 'Failed to update agent'}</p>
+                        </div>`;
                 }
             } catch (error) {
                 console.error('Error updating agent:', error);
@@ -989,11 +1168,6 @@ function printAgentsSettings() {
             } catch (error) {
                 console.error('Error deleting agent:', error);
             }
-        },
-
-        copyApiKey() {
-            navigator.clipboard.writeText(this.newAgentApiKey);
-            alert('API key copied to clipboard');
         },
 
         formatDate(dateStr) {

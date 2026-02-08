@@ -90,6 +90,7 @@ class TenantLabelSettingsUpdate(BaseModel):
     default_label_format: str = Field(..., max_length=50)
     default_code_type: str = Field(..., pattern="^(qr|barcode)$")
     default_copies: int = Field(..., ge=1, le=10)
+    default_orientation: int = Field(0, ge=0, le=270)
 
 
 class TenantLabelSettingsResponse(BaseModel):
@@ -98,5 +99,6 @@ class TenantLabelSettingsResponse(BaseModel):
     default_label_format: str
     default_code_type: str
     default_copies: int
+    default_orientation: int = 0
 
     model_config = ConfigDict(from_attributes=True)

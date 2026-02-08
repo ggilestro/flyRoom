@@ -282,13 +282,17 @@ async def reset_password_page(request: Request, token: str | None = None):
 @app.get("/stocks", response_class=HTMLResponse)
 async def stocks_page(
     request: Request,
+    tag: str | None = None,
+    tray: str | None = None,
     db: Session = Depends(get_db),
     access_token: str | None = Cookie(None),
 ):
-    """Render the stocks list page.
+    """Render the stocks list page with optional tag/tray filtering.
 
     Args:
         request: FastAPI request object.
+        tag: Optional tag ID to filter by.
+        tray: Optional tray ID to filter by.
         db: Database session.
         access_token: JWT access token from cookie.
 
@@ -305,6 +309,8 @@ async def stocks_page(
             "request": request,
             "title": "Stocks",
             "current_user": current_user,
+            "initial_tag": tag,
+            "initial_tray": tray,
         },
     )
 

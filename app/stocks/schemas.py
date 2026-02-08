@@ -64,7 +64,7 @@ class StockBase(BaseModel):
     """Base schema for stocks."""
 
     stock_id: str = Field(..., min_length=1, max_length=100)
-    genotype: str = Field(..., min_length=1)
+    genotype: str
     # Origin tracking
     origin: StockOrigin = StockOrigin.INTERNAL
     repository: StockRepository | None = None  # Only if origin=repository
@@ -89,7 +89,7 @@ class StockUpdate(BaseModel):
     """Schema for updating a stock."""
 
     stock_id: str | None = Field(None, min_length=1, max_length=100)
-    genotype: str | None = Field(None, min_length=1)
+    genotype: str | None = None
     # Origin tracking
     origin: StockOrigin | None = None
     repository: StockRepository | None = None
@@ -155,3 +155,41 @@ class StockSearchParams(BaseModel):
     is_active: bool = True
     page: int = Field(1, ge=1)
     page_size: int = Field(20, ge=1, le=100)
+    sort_by: str | None = Field(None, description="Field to sort by")
+    sort_order: str = Field("desc", description="Sort order (asc or desc)")
+
+
+class BulkVisibilityUpdate(BaseModel):
+    """Schema for bulk visibility update."""
+
+    stock_ids: list[str] = Field(..., min_length=1)
+    visibility: StockVisibility
+
+
+class BulkTagsUpdate(BaseModel):
+    """Schema for bulk tag add/remove."""
+
+    stock_ids: list[str] = Field(..., min_length=1)
+    tag_ids: list[str] = Field(..., min_length=1)
+
+
+class BulkTrayUpdate(BaseModel):
+    """Schema for bulk tray change."""
+
+    stock_ids: list[str] = Field(..., min_length=1)
+    tray_id: str | None = None
+
+
+class BulkOwnerUpdate(BaseModel):
+    """Schema for bulk owner change."""
+
+    stock_ids: list[str] = Field(..., min_length=1)
+    owner_id: str | None = None
+
+
+class BulkUpdateResponse(BaseModel):
+    """Schema for bulk update response."""
+
+    updated_count: int
+    failed_count: int = 0
+    errors: list[str] = Field(default_factory=list)

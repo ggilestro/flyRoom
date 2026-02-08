@@ -216,6 +216,7 @@ class Tenant(Base):
     )
     default_code_type: Mapped[str] = mapped_column(String(20), default="qr", server_default="qr")
     default_copies: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    default_orientation: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     # Flip tracking settings
     flip_warning_days: Mapped[int] = mapped_column(Integer, default=21, server_default="21")
@@ -805,6 +806,10 @@ class PrintAgent(Base):
     last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    poll_interval: Mapped[int] = mapped_column(Integer, default=5, server_default="5")
+    log_level: Mapped[str] = mapped_column(String(10), default="INFO", server_default="INFO")
+    available_printers: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    config_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
 
     # Relationships
     tenant: Mapped["Tenant"] = relationship("Tenant", backref="print_agents")

@@ -22,6 +22,7 @@ class FlyPrintAgent:
     2. Polls for pending print jobs
     3. Claims jobs, downloads PDFs, and prints them
     4. Reports job completion/failure back to server
+    5. Syncs config from server when config_version changes
     """
 
     def __init__(self, config: FlyPrintConfig | None = None):
@@ -34,6 +35,7 @@ class FlyPrintAgent:
         self.printer = get_printer(self.config.printer_name)
         self.running = False
         self._last_heartbeat = None
+        self._update_logged = False
 
         # Set up signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._handle_shutdown)
@@ -43,6 +45,30 @@ class FlyPrintAgent:
         """Handle shutdown signals gracefully."""
         logger.info("Shutdown signal received")
         self.running = False
+
+    def _check_update(self, latest_version: str):
+        """Log a warning once if a newer agent version is available.
+
+        Args:
+            latest_version: Latest version string from server.
+        """
+        if self._update_logged:
+            return
+
+        from flyprint import __version__
+
+        try:
+            # Reason: Simple tuple comparison works for semver (major, minor, patch)
+            current = tuple(int(x) for x in __version__.split("."))
+            latest = tuple(int(x) for x in latest_version.split("."))
+            if latest > current:
+                logger.warning(
+                    f"FlyPrint update available: v{__version__} -> v{latest_version}. "
+                    f"Download from your FlyPush server settings page."
+                )
+                self._update_logged = True
+        except (ValueError, AttributeError):
+            pass
 
     @property
     def _headers(self) -> dict:
@@ -64,31 +90,76 @@ class FlyPrintAgent:
         base = self.config.server_url.rstrip("/")
         return f"{base}/api/labels{path}"
 
-    def send_heartbeat(self) -> bool:
+    def _get_available_printers(self) -> list[dict]:
+        """Get list of available printers for heartbeat reporting.
+
+        Returns:
+            list[dict]: List of printer dicts with name and status.
+        """
+        try:
+            printers = self.printer.get_printers()
+            return [{"name": p["name"], "is_default": p.get("is_default", False)} for p in printers]
+        except Exception:
+            return []
+
+    def send_heartbeat(self) -> dict | None:
         """Send heartbeat to server.
 
         Returns:
-            bool: True if heartbeat was successful.
+            dict | None: Heartbeat response with config_version, or None on failure.
         """
         try:
             printer_status = self.printer.get_printer_status()
+            available_printers = self._get_available_printers()
             response = requests.post(
                 self._api_url("/agent/heartbeat"),
                 headers=self._headers,
                 json={
                     "printer_name": self.config.printer_name,
                     "printer_status": printer_status,
+                    "available_printers": available_printers,
                 },
                 timeout=10,
             )
             if response.status_code == 200:
                 self._last_heartbeat = datetime.utcnow()
-                return True
+                return response.json()
             else:
                 logger.warning(f"Heartbeat failed: {response.status_code}")
-                return False
+                return None
         except requests.RequestException as e:
             logger.error(f"Heartbeat error: {e}")
+            return None
+
+    def fetch_config(self) -> bool:
+        """Fetch config from server and apply it.
+
+        Returns:
+            bool: True if config was fetched and applied.
+        """
+        try:
+            response = requests.get(
+                self._api_url("/agent/config"),
+                headers=self._headers,
+                timeout=10,
+            )
+            if response.status_code == 200:
+                data = response.json()
+                old_printer = self.config.printer_name
+                self.config.apply_server_config(data)
+                logger.info(f"Config synced (version {data.get('config_version', '?')})")
+
+                # Reinit printer if printer_name changed
+                if self.config.printer_name != old_printer:
+                    logger.info(f"Printer changed: {old_printer} -> {self.config.printer_name}")
+                    self.printer = get_printer(self.config.printer_name)
+
+                return True
+            else:
+                logger.warning(f"Failed to fetch config: {response.status_code}")
+                return False
+        except requests.RequestException as e:
+            logger.error(f"Error fetching config: {e}")
             return False
 
     def get_pending_jobs(self) -> list[dict]:
@@ -309,11 +380,25 @@ class FlyPrintAgent:
     def run_once(self) -> int:
         """Run a single polling cycle.
 
+        Sends heartbeat, checks for config changes, processes jobs.
+
         Returns:
             int: Number of jobs processed.
         """
-        # Send heartbeat
-        self.send_heartbeat()
+        # Send heartbeat and check config version
+        heartbeat_resp = self.send_heartbeat()
+        if heartbeat_resp:
+            server_version = heartbeat_resp.get("config_version", 0)
+            if server_version and server_version != self.config.config_version:
+                logger.info(
+                    f"Config version changed: {self.config.config_version} -> {server_version}"
+                )
+                self.fetch_config()
+
+            # Check for agent update
+            latest_version = heartbeat_resp.get("latest_agent_version")
+            if latest_version:
+                self._check_update(latest_version)
 
         # Get pending jobs
         jobs = self.get_pending_jobs()
@@ -333,10 +418,10 @@ class FlyPrintAgent:
     def run(self) -> None:
         """Run the agent polling loop.
 
-        Runs until interrupted or self.running is set to False.
+        Fetches config on startup, then polls until interrupted.
         """
         if not self.config.is_configured():
-            logger.error("Agent not configured. Run 'flyprint configure' first.")
+            logger.error("Agent not configured. Run 'flyprint configure' or 'flyprint pair' first.")
             sys.exit(1)
 
         if not self.printer.is_available:
@@ -347,6 +432,9 @@ class FlyPrintAgent:
         logger.info(f"Server: {self.config.server_url}")
         logger.info(f"Printer: {self.config.printer_name or 'default'}")
         logger.info(f"Poll interval: {self.config.poll_interval}s")
+
+        # Fetch config from server on startup
+        self.fetch_config()
 
         self.running = True
 
@@ -375,7 +463,8 @@ class FlyPrintAgent:
 
         # Test server connection
         try:
-            if self.send_heartbeat():
+            resp = self.send_heartbeat()
+            if resp:
                 results["server"] = {"status": "ok", "message": "Connected to server"}
             else:
                 results["server"] = {"status": "error", "message": "Server rejected heartbeat"}

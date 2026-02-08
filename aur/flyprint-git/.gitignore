@@ -1,0 +1,5 @@
+src/
+pkg/
+flyprint-git/
+*.pkg.tar*
+*.log

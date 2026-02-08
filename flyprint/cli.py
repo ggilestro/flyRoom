@@ -5,10 +5,16 @@ import sys
 from pathlib import Path
 
 import click
+import requests
 
 from flyprint import __version__
 from flyprint.agent import get_agent
-from flyprint.config import DEFAULT_CONFIG_FILE, FlyPrintConfig, get_config
+from flyprint.config import (
+    DEFAULT_CONFIG_FILE,
+    DEFAULT_SERVER_URL,
+    FlyPrintConfig,
+    get_config,
+)
 from flyprint.printer import get_printer
 
 
@@ -51,58 +57,79 @@ def main():
     hide_input=True,
     help="API key from FlyPush Settings > Print Agents",
 )
-@click.option(
-    "--printer",
-    "-p",
-    default=None,
-    help="CUPS printer name (leave empty for default)",
-)
-@click.option(
-    "--poll-interval",
-    "-i",
-    default=5,
-    type=int,
-    help="Seconds between polling for jobs",
-)
-@click.option(
-    "--label-format",
-    "-f",
-    default="dymo_11352",
-    help="Default label format",
-)
-@click.option(
-    "--orientation",
-    "-o",
-    default=0,
-    type=click.Choice(["0", "90", "180", "270"]),
-    help="Print orientation: 0=portrait, 90=landscape, 180/270=reversed",
-)
-def configure(
-    server: str,
-    key: str,
-    printer: str | None,
-    poll_interval: int,
-    label_format: str,
-    orientation: str,
-):
-    """Configure the FlyPrint agent.
+def configure(server: str, key: str):
+    """Configure the FlyPrint agent manually.
 
-    Run this once to set up the agent with your server URL and API key.
-    You can get the API key from FlyPush Settings > Print Agents.
+    Use this as a fallback if 'flyprint pair' doesn't work.
+    Requires a server URL and API key from the web UI.
     """
     config = FlyPrintConfig(
         server_url=server.rstrip("/"),
         api_key=key,
-        printer_name=printer,
-        poll_interval=poll_interval,
-        label_format=label_format,
-        orientation=int(orientation),
     )
 
     config.save()
     click.echo(f"\nConfiguration saved to {DEFAULT_CONFIG_FILE}")
     click.echo("\nRun 'flyprint test' to verify the connection.")
     click.echo("Run 'flyprint start' to start the agent.")
+
+
+@main.command()
+@click.argument("code", required=False)
+@click.option(
+    "--server",
+    "-s",
+    default=DEFAULT_SERVER_URL,
+    help=f"FlyPush server URL (default: {DEFAULT_SERVER_URL})",
+)
+def pair(code: str | None, server: str):
+    """Pair this agent with your FlyPush server.
+
+    Start pairing from the FlyPush web UI (Settings > Labels > Add Agent),
+    then run this command. The server will match you automatically by IP.
+
+    If automatic matching doesn't work, use the 6-character code shown
+    in the web UI:
+
+        flyprint pair AB3K9X
+    """
+    from flyprint.gui.pairing_dialog import do_pairing
+
+    server_url = server.rstrip("/")
+
+    click.echo(f"Pairing with {server_url}...")
+    if code:
+        click.echo(f"Using pairing code: {code}")
+    else:
+        click.echo("Attempting automatic IP-based pairing...")
+
+    try:
+        result = do_pairing(server_url, code)
+        config = FlyPrintConfig(
+            server_url=server_url,
+            api_key=result["api_key"],
+        )
+        config.save()
+
+        click.echo(f"\nPaired successfully as '{result['agent_name']}'!")
+        click.echo(f"Configuration saved to {DEFAULT_CONFIG_FILE}")
+        click.echo("\nRun 'flyprint start' to begin printing.")
+
+    except requests.ConnectionError:
+        click.echo(f"\nCould not connect to {server_url}")
+        click.echo("Check the server URL and try again.")
+        sys.exit(1)
+    except ValueError as e:
+        click.echo(f"\nPairing failed: {e}")
+        if not code:
+            click.echo(
+                "\nTip: If you're on a different network, use the pairing code "
+                "from the web UI:\n  flyprint pair <CODE>"
+            )
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"\nPairing error: {e}")
+        sys.exit(1)
 
 
 @main.command()
@@ -114,7 +141,7 @@ def status():
 
     if not config.is_configured():
         click.echo("Status: NOT CONFIGURED")
-        click.echo("\nRun 'flyprint configure' to set up the agent.")
+        click.echo("\nRun 'flyprint pair' or 'flyprint configure' to set up the agent.")
         return
 
     click.echo(f"Server URL: {config.server_url}")
@@ -122,7 +149,8 @@ def status():
     click.echo(f"Printer: {config.printer_name or '(default)'}")
     click.echo(f"Poll Interval: {config.poll_interval}s")
     click.echo(f"Label Format: {config.label_format}")
-    click.echo(f"Orientation: {config.orientation}°")
+    click.echo(f"Orientation: {config.orientation}")
+    click.echo(f"Config Version: {config.config_version}")
 
     # Check printer status
     printer = get_printer(config.printer_name)
@@ -133,9 +161,9 @@ def status():
         if printers:
             click.echo("Available printers:")
             for p in printers:
-                status = printer.get_printer_status(p["name"])
+                p_status = printer.get_printer_status(p["name"])
                 marker = "*" if p.get("is_default") or p["name"] == config.printer_name else " "
-                click.echo(f"  {marker} {p['name']} [{status}]")
+                click.echo(f"  {marker} {p['name']} [{p_status}]")
         else:
             click.echo("No printers found")
     else:
@@ -148,7 +176,7 @@ def test():
     config = get_config()
 
     if not config.is_configured():
-        click.echo("Error: Agent not configured. Run 'flyprint configure' first.")
+        click.echo("Error: Agent not configured. Run 'flyprint pair' first.")
         sys.exit(1)
 
     setup_logging("INFO")
@@ -160,13 +188,13 @@ def test():
 
     # Server status
     server = results["server"]
-    server_icon = "✓" if server["status"] == "ok" else "✗"
+    server_icon = "+" if server["status"] == "ok" else "x"
     click.echo(f"{server_icon} Server: {server['message']}")
 
     # Printer status
     printer = results["printer"]
     printer_icon = (
-        "✓" if printer["status"] == "ok" else ("!" if printer["status"] == "warning" else "✗")
+        "+" if printer["status"] == "ok" else ("!" if printer["status"] == "warning" else "x")
     )
     click.echo(f"{printer_icon} Printer: {printer['message']}")
 
@@ -193,7 +221,7 @@ def start(verbose: bool):
     config = get_config()
 
     if not config.is_configured():
-        click.echo("Error: Agent not configured. Run 'flyprint configure' first.")
+        click.echo("Error: Agent not configured. Run 'flyprint pair' first.")
         sys.exit(1)
 
     level = "DEBUG" if verbose else config.log_level
@@ -224,10 +252,10 @@ def printers():
     default = printer.get_default_printer()
 
     for p in printers_list:
-        status = printer.get_printer_status(p["name"])
+        p_status = printer.get_printer_status(p["name"])
         is_default = p["name"] == default
         marker = "* " if is_default else "  "
-        click.echo(f"{marker}{p['name']} [{status}]")
+        click.echo(f"{marker}{p['name']} [{p_status}]")
 
     click.echo("\n(* = default printer)")
 
@@ -243,7 +271,7 @@ def install_service(user: bool):
     config = get_config()
 
     if not config.is_configured():
-        click.echo("Error: Agent not configured. Run 'flyprint configure' first.")
+        click.echo("Error: Agent not configured. Run 'flyprint pair' first.")
         sys.exit(1)
 
     service_content = f"""[Unit]
@@ -291,6 +319,18 @@ WantedBy={"default.target" if user else "multi-user.target"}
         click.echo("  sudo systemctl daemon-reload")
         click.echo("  sudo systemctl enable flyprint")
         click.echo("  sudo systemctl start flyprint")
+
+
+@main.command()
+def gui():
+    """Launch FlyPrint with system tray GUI.
+
+    Opens a system tray icon with status display and controls.
+    Shows pairing dialog if not yet configured.
+    """
+    from flyprint.app_entry import main as gui_main
+
+    gui_main()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,89 @@
+# Maintainer: Giorgio Gilestro <giorgio@gilest.ro>
+pkgname=flyprint-git
+pkgver=0.1.0.r14.g89cda37
+pkgrel=1
+pkgdesc="Local print agent for FlyPush label printing (system tray + headless)"
+arch=('any')
+url="https://github.com/ggilestro/flyPush"
+license=('MIT')
+depends=(
+    'python>=3.10'
+    'python-click'
+    'python-requests'
+)
+optdepends=(
+    'python-pystray: system tray icon (GUI mode)'
+    'python-pillow: tray icon rendering (GUI mode)'
+    'python-pycups: CUPS printing support'
+    'tk: pairing dialog (GUI mode)'
+)
+makedepends=(
+    'git'
+    'python-build'
+    'python-installer'
+    'python-hatchling'
+)
+provides=('flyprint')
+conflicts=('flyprint')
+source=("${pkgname}::git+https://github.com/ggilestro/flyPush.git")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$pkgname"
+    if git describe --long --tags 2>/dev/null; then
+        git describe --long --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+    else
+        printf "0.1.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+    fi
+}
+
+build() {
+    cd "$pkgname/flyprint"
+    pyproject-build --wheel --no-isolation
+}
+
+package() {
+    cd "$pkgname/flyprint"
+
+    # Install the wheel
+    python -m installer --destdir="$pkgdir" dist/*.whl
+
+    # Install .desktop file
+    install -Dm644 "$srcdir/../flyprint.desktop" \
+        "$pkgdir/usr/share/applications/flyprint.desktop"
+
+    # Install icon
+    install -Dm644 assets/icon.png \
+        "$pkgdir/usr/share/icons/hicolor/256x256/apps/flyprint.png"
+
+    # Install systemd user service
+    install -Dm644 "$srcdir/../flyprint.service" \
+        "$pkgdir/usr/lib/systemd/user/flyprint.service"
+
+    # Install license
+    install -Dm644 "$srcdir/$pkgname/LICENSE" \
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null ||
+    install -Dm644 /dev/stdin "$pkgdir/usr/share/licenses/$pkgname/LICENSE" <<'EOF'
+MIT License
+
+Copyright (c) 2024 Giorgio Gilestro
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+EOF
+}
