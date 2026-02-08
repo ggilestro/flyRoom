@@ -1187,7 +1187,7 @@ async def get_job_image(
                 location_info=label.location_info,
                 code_type=labels.code_type,
                 print_date=label.print_date,
-                for_print=False,  # 300 DPI for quality; agent tells CUPS the correct ppi
+                for_print=True,  # 72 DPI so pixels map 1:1 to points for CUPS
             )
         else:
             raise HTTPException(
