@@ -313,6 +313,66 @@ class EmailService:
         """
         return self.send_email(admin_email, subject, body_html)
 
+    def send_invitation_email(
+        self,
+        to_email: str,
+        invitation_type: str,
+        inviter_name: str,
+        tenant_name: str,
+        organization_name: str | None,
+        registration_url: str,
+        expires_days: int = 7,
+    ) -> bool:
+        """Send an invitation email to a prospective user.
+
+        Args:
+            to_email: Invitee's email address.
+            invitation_type: "lab_member" or "new_tenant".
+            inviter_name: Name of the person sending the invitation.
+            tenant_name: Lab name.
+            organization_name: Organization name (for new_tenant type).
+            registration_url: Full URL to registration page with token.
+            expires_days: Number of days until invitation expires.
+
+        Returns:
+            bool: True if sent successfully.
+        """
+        if invitation_type == "new_tenant":
+            subject = f"{self.app_name} - You're invited to create a new lab in {organization_name}"
+            heading = "You've been invited to create a new lab"
+            description = (
+                f"{inviter_name} from <strong>{tenant_name}</strong> has invited you to create "
+                f"a new lab within <strong>{organization_name}</strong> on {self.app_name}."
+            )
+        else:
+            subject = f"{self.app_name} - You're invited to join {tenant_name}"
+            heading = f"You've been invited to join {tenant_name}"
+            description = (
+                f"{inviter_name} has invited you to join <strong>{tenant_name}</strong> "
+                f"on {self.app_name}."
+            )
+
+        body_html = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <h2>{heading}</h2>
+            <p>{description}</p>
+            <p>Click the button below to create your account:</p>
+            <p style="margin: 20px 0;">
+                <a href="{registration_url}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                    Accept Invitation
+                </a>
+            </p>
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #2563eb;">{registration_url}</p>
+            <p><strong>This invitation expires in {expires_days} days.</strong></p>
+            <p>If you weren't expecting this invitation, you can safely ignore this email.</p>
+            <p>Best regards,<br>The {self.app_name} Team</p>
+        </body>
+        </html>
+        """
+        return self.send_email(to_email, subject, body_html)
+
     def send_flip_reminder_email(
         self,
         to_email: str,

@@ -199,22 +199,45 @@ async def login_page(request: Request):
 
 
 @app.get("/register", response_class=HTMLResponse)
-async def register_page(request: Request, invite: str | None = None):
+async def register_page(
+    request: Request,
+    invite: str | None = None,
+    invitation: str | None = None,
+    db: Session = Depends(get_db),
+):
     """Render the registration page.
 
     Args:
         request: FastAPI request object.
-        invite: Optional invitation token from query params.
+        invite: Optional tenant invitation token from query params.
+        invitation: Optional email invitation token from query params.
+        db: Database session.
 
     Returns:
         HTMLResponse: Rendered template.
     """
+    # Check for email invitation token
+    invitation_data = None
+    if invitation:
+        from app.tenants.service import TenantService
+
+        validation = TenantService.get_invitation_validation(db, invitation)
+        if validation:
+            invitation_data = {
+                "token": invitation,
+                "email": validation.email,
+                "invitation_type": validation.invitation_type,
+                "tenant_name": validation.tenant_name,
+                "organization_name": validation.organization_name,
+            }
+
     return templates.TemplateResponse(
         "auth/register.html",
         {
             "request": request,
             "title": "Register",
             "invitation_token": invite,
+            "invitation_data": invitation_data,
         },
     )
 
@@ -617,12 +640,15 @@ async def admin_page(
     if current_user.role != UserRole.ADMIN:
         return RedirectResponse(url="/", status_code=302)
 
+    has_organization = bool(current_user.tenant and current_user.tenant.organization_id)
+
     return templates.TemplateResponse(
         "admin/index.html",
         {
             "request": request,
             "title": "Admin Panel",
             "current_user": current_user,
+            "has_organization": has_organization,
         },
     )
 

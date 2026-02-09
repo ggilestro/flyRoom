@@ -129,6 +129,22 @@ class PrintJobStatus(str, enum.Enum):
     CANCELLED = "cancelled"  # User cancelled
 
 
+class InvitationType(str, enum.Enum):
+    """Email invitation type enumeration."""
+
+    LAB_MEMBER = "lab_member"  # Invitee joins the admin's lab
+    NEW_TENANT = "new_tenant"  # Invitee creates a new lab in the same org
+
+
+class InvitationStatus(str, enum.Enum):
+    """Email invitation status enumeration."""
+
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
+
+
 class FlipStatus(str, enum.Enum):
     """Stock flip status enumeration based on days since last flip."""
 
@@ -908,3 +924,57 @@ class FlipEvent(Base):
     # Relationships
     stock: Mapped["Stock"] = relationship("Stock", back_populates="flip_events")
     flipped_by: Mapped[Optional["User"]] = relationship("User")
+
+
+class Invitation(Base):
+    """Email invitation model for inviting users to join a lab or create a new one.
+
+    Attributes:
+        id: Primary key UUID.
+        tenant_id: FK to tenant that sent the invitation.
+        invited_by_id: FK to user who sent the invitation.
+        email: Invitee's email address.
+        invitation_type: LAB_MEMBER or NEW_TENANT.
+        token: Unique token for the invitation link.
+        status: Invitation status (pending, accepted, cancelled, expired).
+        organization_id: Denormalized org ID from tenant at creation time.
+        expires_at: When the invitation expires.
+        created_at: Creation timestamp.
+        accepted_at: When the invitation was accepted.
+    """
+
+    __tablename__ = "invitations"
+    __table_args__ = (
+        Index("ix_invitations_tenant_id", "tenant_id"),
+        Index("ix_invitations_token", "token"),
+        Index("ix_invitations_email", "email"),
+    )
+
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        CHAR(36), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    invited_by_id: Mapped[str] = mapped_column(
+        CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    invitation_type: Mapped[InvitationType] = mapped_column(
+        Enum(InvitationType, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+    )
+    token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    status: Mapped[InvitationStatus] = mapped_column(
+        Enum(InvitationStatus, values_callable=lambda x: [e.value for e in x]),
+        default=InvitationStatus.PENDING,
+    )
+    organization_id: Mapped[str | None] = mapped_column(
+        CHAR(36), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Relationships
+    tenant: Mapped["Tenant"] = relationship("Tenant")
+    invited_by: Mapped[Optional["User"]] = relationship("User")
+    organization: Mapped[Optional["Organization"]] = relationship("Organization")

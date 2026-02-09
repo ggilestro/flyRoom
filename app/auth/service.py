@@ -200,10 +200,11 @@ class AuthService:
     def register(self, data: UserRegister, base_url: str = "") -> tuple[User, Token | None, str]:
         """Register a new user.
 
-        Handles three cases:
-        1. PI registration: Creates new tenant, user becomes admin (approved)
-        2. Member with invitation token: Joins tenant, auto-approved
-        3. Member without token: Joins tenant, pending approval
+        Handles four cases:
+        1. Email invitation (LAB_MEMBER): Joins tenant, auto-approved
+        2. Email invitation (NEW_TENANT): Creates new lab in org, becomes admin
+        3. PI registration: Creates new tenant, user becomes admin (approved)
+        4. Member with/without tenant invitation token: Joins tenant
 
         All cases require email verification before login.
 
@@ -218,6 +219,24 @@ class AuthService:
         Raises:
             ValueError: If email exists or organization not found.
         """
+        # Check for email invitation token first
+        if data.invitation_token:
+            from app.tenants.service import TenantService
+
+            invitation = TenantService.validate_invitation_token(self.db, data.invitation_token)
+            if invitation:
+                # Validate email matches invitation
+                if data.email.lower() != invitation.email.lower():
+                    raise ValueError("Email address does not match the invitation")
+
+                from app.db.models import InvitationType
+
+                if invitation.invitation_type == InvitationType.LAB_MEMBER:
+                    return self._register_invited_member(data, invitation, base_url)
+                elif invitation.invitation_type == InvitationType.NEW_TENANT:
+                    return self._register_invited_tenant(data, invitation, base_url)
+
+        # Fall through to existing registration paths
         if data.is_pi:
             return self._register_pi(data, base_url)
         else:
@@ -415,6 +434,139 @@ class AuthService:
                     f"Your request to join {lab_name}'s lab is also pending approval."
                 ),
             )
+
+    def _register_invited_member(
+        self, data: UserRegister, invitation, base_url: str = ""
+    ) -> tuple[User, Token | None, str]:
+        """Register a user via LAB_MEMBER email invitation.
+
+        Creates user in the invitation's tenant, auto-approved.
+
+        Args:
+            data: Registration data.
+            invitation: Validated Invitation model.
+            base_url: Base URL for verification email.
+
+        Returns:
+            tuple: Created user, None, and status message.
+
+        Raises:
+            ValueError: If email already exists in the tenant.
+        """
+        from app.tenants.service import TenantService
+
+        # Check if email already exists in this tenant
+        existing_user = (
+            self.db.query(User)
+            .filter(User.tenant_id == invitation.tenant_id, User.email == data.email)
+            .first()
+        )
+        if existing_user:
+            raise ValueError("Email already registered in this lab.")
+
+        # Create user (auto-approved)
+        user = User(
+            tenant_id=invitation.tenant_id,
+            email=data.email,
+            password_hash=get_password_hash(data.password),
+            full_name=data.full_name,
+            role=UserRole.USER,
+            status=UserStatus.APPROVED,
+            is_active=True,
+            is_email_verified=False,
+        )
+        self.db.add(user)
+
+        # Mark invitation as accepted
+        TenantService.accept_invitation(self.db, invitation.token)
+
+        self.db.commit()
+        self.db.refresh(user)
+
+        # Send verification email
+        if base_url:
+            self.send_verification_email(user, base_url)
+
+        return (
+            user,
+            None,
+            "Registration successful! Please check your email to verify your account.",
+        )
+
+    def _register_invited_tenant(
+        self, data: UserRegister, invitation, base_url: str = ""
+    ) -> tuple[User, Token | None, str]:
+        """Register a user via NEW_TENANT email invitation.
+
+        Creates a new lab within the invitation's organization.
+
+        Args:
+            data: Registration data.
+            invitation: Validated Invitation model.
+            base_url: Base URL for verification email.
+
+        Returns:
+            tuple: Created user, None, and status message.
+
+        Raises:
+            ValueError: If email already registered.
+        """
+        from app.tenants.service import TenantService
+
+        # Check if email already registered
+        existing = self.db.query(User).filter(User.email == data.email).first()
+        if existing:
+            raise ValueError("This email is already registered.")
+
+        # Determine lab name
+        lab_name = (
+            data.lab_name if data.lab_name else (data.organization or data.full_name + " Lab")
+        )
+
+        # Create tenant (lab) within the org
+        slug_base = f"{lab_name}-{data.full_name}" if data.organization else data.full_name
+        slug = self._create_slug(slug_base)
+        tenant = Tenant(
+            name=lab_name,
+            slug=slug,
+            organization_id=invitation.organization_id,
+            is_active=True,
+            invitation_token=self._generate_invitation_token(),
+            invitation_token_created_at=datetime.now(UTC),
+            city=data.city,
+            country=data.country,
+        )
+        self.db.add(tenant)
+        self.db.flush()
+
+        # Create admin user (auto-approved)
+        user = User(
+            tenant_id=tenant.id,
+            email=data.email,
+            password_hash=get_password_hash(data.password),
+            full_name=data.full_name,
+            role=UserRole.ADMIN,
+            status=UserStatus.APPROVED,
+            is_active=True,
+            is_email_verified=False,
+        )
+        self.db.add(user)
+
+        # Mark invitation as accepted
+        TenantService.accept_invitation(self.db, invitation.token)
+
+        self.db.commit()
+        self.db.refresh(user)
+
+        # Send verification email
+        if base_url:
+            self.send_verification_email(user, base_url)
+
+        return (
+            user,
+            None,
+            "Registration successful! Please check your email to verify your account.",
+        )
 
     def login(self, data: UserLogin) -> tuple[User | None, Token | None, str]:
         """Authenticate user and return token.

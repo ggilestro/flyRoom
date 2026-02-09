@@ -67,6 +67,36 @@ class TenantResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class InvitationCreate(BaseModel):
+    """Schema for creating an email invitation."""
+
+    email: EmailStr
+    invitation_type: str = Field(default="lab_member", pattern="^(lab_member|new_tenant)$")
+
+
+class InvitationResponse(BaseModel):
+    """Schema for invitation list response."""
+
+    id: str
+    email: str
+    invitation_type: str
+    status: str
+    created_at: datetime
+    expires_at: datetime
+    invited_by_name: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InvitationValidation(BaseModel):
+    """Schema for validating an invitation token (public endpoint)."""
+
+    email: str
+    invitation_type: str
+    tenant_name: str
+    organization_name: str | None = None
+
+
 class TenantUpdate(BaseModel):
     """Schema for updating tenant."""
 

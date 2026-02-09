@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block public_content %}
-<div class="w-full max-w-lg" x-data="registrationWizard('{{ invitation_token or '' }}')">
+<div class="w-full max-w-lg" x-data="registrationWizard('{{ invitation_token or '' }}', {{ invitation_data | tojson if invitation_data else 'null' }})">
     <div class="mb-8">
         <h1 class="text-center text-3xl font-bold tracking-tight text-primary-600">{{ app_name }}</h1>
         <h2 class="mt-4 text-center text-2xl font-bold tracking-tight text-gray-900">Create your account</h2>
@@ -10,6 +10,23 @@
             <a href="/login" class="font-medium text-primary-600 hover:text-primary-500">Sign in</a>
         </p>
     </div>
+
+    <!-- Invitation Banner -->
+    <template x-if="invitationData">
+        <div class="mb-6 rounded-md bg-blue-50 border border-blue-200 p-4">
+            <div class="flex">
+                <svg class="h-5 w-5 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-blue-800" x-text="invitationData.invitation_type === 'new_tenant'
+                        ? 'You\'ve been invited to create a new lab in ' + invitationData.organization_name
+                        : 'You\'ve been invited to join ' + invitationData.tenant_name"></p>
+                    <p class="mt-1 text-sm text-blue-600">Complete the form below to accept the invitation.</p>
+                </div>
+            </div>
+        </div>
+    </template>
 
     <!-- Progress Steps -->
     <div class="mb-8" x-show="step >= 0">
@@ -34,8 +51,8 @@
     <!-- Messages -->
     <div id="register-message"></div>
 
-    <!-- Step 0: Account Type -->
-    <div x-show="step === 0" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
+    <!-- Step: Account Type (only for non-invitation flow) -->
+    <div x-show="isAccountTypeStep" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
         <div class="bg-white shadow rounded-lg p-6 space-y-4">
             <h3 class="text-lg font-medium text-gray-900">What describes you best?</h3>
 
@@ -88,8 +105,8 @@
         </div>
     </div>
 
-    <!-- Step 1: Account Details -->
-    <div x-show="step === 1" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
+    <!-- Step: Account Details -->
+    <div x-show="isDetailsStep" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
         <div class="bg-white shadow rounded-lg p-6 space-y-4">
             <h3 class="text-lg font-medium text-gray-900">Your Details</h3>
 
@@ -102,7 +119,10 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700">Email Address</label>
                 <input type="email" x-model="form.email" required
+                       :readonly="invitationData !== null"
+                       :class="invitationData ? 'bg-gray-100 cursor-not-allowed' : ''"
                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                <p x-show="invitationData" class="mt-1 text-xs text-gray-500">Email is set by the invitation and cannot be changed.</p>
             </div>
 
             <div>
@@ -119,14 +139,14 @@
             </div>
 
             <div class="flex gap-3 pt-4">
-                <button @click="prevStep()" class="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-gray-700 hover:bg-gray-50">Back</button>
+                <button x-show="step > 0" @click="prevStep()" class="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-gray-700 hover:bg-gray-50">Back</button>
                 <button @click="validateStep1() && nextStep()" class="flex-1 bg-primary-600 text-white rounded-lg px-4 py-2 hover:bg-primary-500">Continue</button>
             </div>
         </div>
     </div>
 
-    <!-- Step 2: Organization (PI) or PI Identifier (Member) -->
-    <div x-show="step === 2" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
+    <!-- Step: Organization (PI) or PI Identifier (Member) -->
+    <div x-show="isInstitutionStep" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
         <div class="bg-white shadow rounded-lg p-6 space-y-4">
             <!-- PI: Institution Selection -->
             <template x-if="form.isPI">
@@ -269,12 +289,12 @@
         </div>
     </div>
 
-    <!-- Step 3: Lab Details (PI only) / Confirm -->
-    <div x-show="step === 3" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
+    <!-- Step: Lab Details (PI only) / Confirm -->
+    <div x-show="isConfirmStep" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
         <div class="bg-white shadow rounded-lg p-6 space-y-4">
             <h3 class="text-lg font-medium text-gray-900" x-text="form.isPI ? 'Lab Details' : 'Almost Done'"></h3>
 
-            <template x-if="form.isPI">
+            <template x-if="form.isPI && !invitationData">
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Lab Name (optional)</label>
@@ -297,6 +317,22 @@
                                 <dd class="text-gray-900" x-text="form.country"></dd>
                             </div>
                         </dl>
+                    </div>
+                </div>
+            </template>
+
+            <!-- New Tenant invitation: lab details -->
+            <template x-if="invitationData && invitationData.invitation_type === 'new_tenant'">
+                <div class="space-y-4">
+                    <div class="bg-gray-50 rounded-md p-3">
+                        <p class="text-sm text-gray-600">Organization: <strong x-text="invitationData.organization_name"></strong></p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Lab Name (optional)</label>
+                        <input type="text" x-model="form.labName"
+                               :placeholder="form.fullName ? form.fullName + ' Lab' : 'e.g., Smith Lab'"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                        <p class="mt-1 text-xs text-gray-500">Leave blank to use the default name</p>
                     </div>
                 </div>
             </template>
@@ -355,12 +391,25 @@ const COUNTRIES = [
     "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
 ];
 
-function registrationWizard(inviteToken) {
+function registrationWizard(inviteToken, invitationData) {
     return {
         step: 0,
-        stepNames: ['Account Type', 'Your Details', 'Institution', 'Confirm'],
         inviteToken: inviteToken,
+        invitationData: invitationData,
         loading: false,
+
+        // Dynamic step names based on flow
+        get stepNames() {
+            if (this.invitationData) {
+                if (this.invitationData.invitation_type === 'lab_member') {
+                    return ['Your Details', 'Confirm'];
+                } else {
+                    // NEW_TENANT: need lab details
+                    return ['Your Details', 'Lab Details', 'Confirm'];
+                }
+            }
+            return ['Account Type', 'Your Details', 'Institution', 'Confirm'];
+        },
 
         // Country autocomplete
         countrySearch: '',
@@ -390,8 +439,49 @@ function registrationWizard(inviteToken) {
             acceptTerms: false
         },
 
+        init() {
+            // Pre-fill from invitation data
+            if (this.invitationData) {
+                this.form.email = this.invitationData.email;
+                if (this.invitationData.invitation_type === 'lab_member') {
+                    this.form.isPI = false;
+                } else {
+                    this.form.isPI = true;
+                    if (this.invitationData.organization_name) {
+                        this.form.organization = this.invitationData.organization_name;
+                    }
+                }
+            }
+        },
+
+        get maxStep() {
+            return this.stepNames.length - 1;
+        },
+
+        // Map logical step to actual display step for invitation flows
+        get isConfirmStep() {
+            return this.step === this.maxStep;
+        },
+
+        get isDetailsStep() {
+            if (this.invitationData) return this.step === 0;
+            return this.step === 1;
+        },
+
+        get isInstitutionStep() {
+            if (this.invitationData && this.invitationData.invitation_type === 'new_tenant') {
+                return this.step === 1;
+            }
+            if (!this.invitationData) return this.step === 2;
+            return false;
+        },
+
+        get isAccountTypeStep() {
+            return !this.invitationData && this.step === 0;
+        },
+
         nextStep() {
-            if (this.step < 3) this.step++;
+            if (this.step < this.maxStep) this.step++;
         },
 
         prevStep() {
@@ -526,10 +616,17 @@ function registrationWizard(inviteToken) {
                 password: this.form.password,
                 password_confirm: this.form.passwordConfirm,
                 is_pi: this.form.isPI,
-                invitation_token: this.inviteToken || null
+                invitation_token: (this.invitationData ? this.invitationData.token : null) || this.inviteToken || null
             };
 
-            if (this.form.isPI) {
+            if (this.invitationData && this.invitationData.invitation_type === 'new_tenant') {
+                data.is_pi = true;
+                data.organization = this.invitationData.organization_name;
+                if (this.form.labName) data.lab_name = this.form.labName;
+                if (this.form.country) data.country = this.form.country;
+            } else if (this.invitationData) {
+                // lab_member invitation - no extra fields needed
+            } else if (this.form.isPI) {
                 data.organization = this.form.organization;
                 if (this.form.labName) data.lab_name = this.form.labName;
                 if (this.form.country) data.country = this.form.country;

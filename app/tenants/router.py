@@ -2,11 +2,13 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.dependencies import CurrentAdminUser, CurrentTenantId, get_db
 from app.tenants.schemas import (
+    InvitationCreate,
+    InvitationResponse,
     TenantResponse,
     TenantUpdate,
     UserInvite,
@@ -252,3 +254,105 @@ async def reset_user_password(
         )
     # In production, send email with temp_password
     return {"temporary_password": temp_password}
+
+
+# --- Invitation Endpoints ---
+
+
+@router.post("/invitations", response_model=InvitationResponse, status_code=status.HTTP_201_CREATED)
+async def create_invitation(
+    data: InvitationCreate,
+    request: Request,
+    service: Annotated[TenantService, Depends(get_service)],
+    admin: CurrentAdminUser,
+):
+    """Create and send an email invitation.
+
+    Args:
+        data: Invitation data.
+        request: FastAPI request object.
+        service: Tenant service.
+        admin: Current admin user.
+
+    Returns:
+        InvitationResponse: Created invitation.
+
+    Raises:
+        HTTPException: If invitation creation fails.
+    """
+    try:
+        base_url = str(request.base_url).rstrip("/")
+        return service.create_invitation(data, str(admin.id), base_url)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.get("/invitations", response_model=list[InvitationResponse])
+async def list_invitations(
+    service: Annotated[TenantService, Depends(get_service)],
+):
+    """List all invitations for the tenant.
+
+    Args:
+        service: Tenant service.
+
+    Returns:
+        list[InvitationResponse]: List of invitations.
+    """
+    return service.list_invitations()
+
+
+@router.post("/invitations/{invitation_id}/cancel")
+async def cancel_invitation(
+    invitation_id: str,
+    service: Annotated[TenantService, Depends(get_service)],
+):
+    """Cancel a pending invitation.
+
+    Args:
+        invitation_id: Invitation UUID.
+        service: Tenant service.
+
+    Returns:
+        dict: Success message.
+
+    Raises:
+        HTTPException: If invitation not found.
+    """
+    if not service.cancel_invitation(invitation_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invitation not found or already processed",
+        )
+    return {"message": "Invitation cancelled"}
+
+
+@router.post("/invitations/{invitation_id}/resend")
+async def resend_invitation(
+    invitation_id: str,
+    request: Request,
+    service: Annotated[TenantService, Depends(get_service)],
+):
+    """Resend a pending invitation email.
+
+    Args:
+        invitation_id: Invitation UUID.
+        request: FastAPI request object.
+        service: Tenant service.
+
+    Returns:
+        dict: Success message.
+
+    Raises:
+        HTTPException: If invitation not found.
+    """
+    base_url = str(request.base_url).rstrip("/")
+    if not service.resend_invitation(invitation_id, base_url):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invitation not found or already processed",
+        )
+    return {"message": "Invitation resent"}

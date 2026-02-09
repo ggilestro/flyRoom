@@ -1,3 +1,64 @@
+# Email-Based User Invitations in Admin Panel
+
+## Current Task
+Implement email invitation system where admins can invite users by email, with two invitation types: Lab Member (joins existing lab, auto-approved) and New Tenant (creates new lab in organization).
+
+**Date Started:** 2026-02-09
+**Date Completed:** 2026-02-09
+**Status:** Complete
+
+## Implementation Summary
+
+### Database Changes
+- Added `InvitationType` enum (LAB_MEMBER, NEW_TENANT) and `InvitationStatus` enum (PENDING, ACCEPTED, CANCELLED, EXPIRED)
+- Added `Invitation` model with fields: id, tenant_id, invited_by_id, email, invitation_type, token, status, organization_id, expires_at, created_at, accepted_at
+- Created migration `010_add_invitations.py`
+
+### Backend Changes
+- Added `InvitationCreate`, `InvitationResponse`, `InvitationValidation` schemas to `app/tenants/schemas.py`
+- Added `send_invitation_email()` to `app/email/service.py` with styled HTML email
+- Added invitation CRUD + static validation methods to `app/tenants/service.py`
+- Added 4 admin API endpoints in `app/tenants/router.py` (create, list, cancel, resend)
+- Added public token validation endpoint in `app/auth/router.py`
+- Modified `app/auth/service.py` register() with `_register_invited_member()` and `_register_invited_tenant()` paths
+- Updated `app/main.py` register_page + admin_page routes
+
+### Frontend Changes
+- Added "Invite User" section to `app/templates/admin/index.html` with Alpine.js component
+- Updated `app/templates/auth/register.html` for invitation-based registration (dynamic steps, pre-filled email, invitation banners)
+
+### API Endpoints
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/admin/invitations` | Create + send invitation |
+| GET | `/api/admin/invitations` | List invitations |
+| POST | `/api/admin/invitations/{id}/cancel` | Cancel invitation |
+| POST | `/api/admin/invitations/{id}/resend` | Resend invitation email |
+| GET | `/api/auth/invitation/{token}` | Validate token (public) |
+
+## Test Results
+- 25 unit tests for invitation service, API endpoints, and registration flows
+- All 25 tests pass
+
+## Files Created
+- `alembic/versions/010_add_invitations.py`
+- `tests/test_tenants/__init__.py`
+- `tests/test_tenants/test_invitations.py`
+
+## Files Modified
+- `app/db/models.py` - Invitation model + enums
+- `app/tenants/schemas.py` - 3 invitation schemas
+- `app/email/service.py` - `send_invitation_email()`
+- `app/tenants/service.py` - Invitation CRUD + validation methods
+- `app/tenants/router.py` - 4 invitation endpoints
+- `app/auth/router.py` - Token validation endpoint
+- `app/auth/service.py` - Invitation-aware registration paths
+- `app/main.py` - Updated register_page + admin_page
+- `app/templates/admin/index.html` - Invite User section
+- `app/templates/auth/register.html` - Invitation-based registration flow
+
+---
+
 # AUR Package: flyprint-git
 
 ## Current Task

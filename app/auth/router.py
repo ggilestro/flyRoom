@@ -490,6 +490,36 @@ async def approve_user(
     return {"message": f"User {user.full_name} has been approved."}
 
 
+@router.get("/invitation/{token}")
+async def validate_invitation(
+    token: str,
+    service: Annotated[AuthService, Depends(get_service)],
+):
+    """Validate an invitation token and return invitation details.
+
+    Public endpoint - no authentication required.
+
+    Args:
+        token: Invitation token from URL.
+        service: Auth service.
+
+    Returns:
+        InvitationValidation: Invitation details (email, type, tenant/org names).
+
+    Raises:
+        HTTPException: If token is invalid or expired.
+    """
+    from app.tenants.service import TenantService
+
+    result = TenantService.get_invitation_validation(service.db, token)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid or expired invitation",
+        )
+    return result
+
+
 @router.post("/users/{user_id}/reject")
 async def reject_user(
     user_id: str,
