@@ -1,3 +1,48 @@
+# LLM Integration Plugin (Service Layer)
+
+## Current Task
+Create foundational LLM service module for AI-powered features using OpenRouter.ai API.
+
+**Date Started:** 2026-02-11
+**Date Completed:** 2026-02-11
+**Status:** Complete
+
+## Implementation Summary
+
+### New Module: app/llm/
+- `__init__.py`: Module exports (LLMService, get_llm_service)
+- `schemas.py`: LLMMessage, LLMResponse, LLMError Pydantic models
+- `service.py`: LLMService with async `chat()` and `ask()` methods via httpx
+
+### Config Changes
+- Added LLM settings to `app/config.py`: llm_api_key, llm_base_url, llm_default_model, llm_temperature, llm_max_tokens
+- Updated `.env.example` with LLM section
+
+### Design
+- No new dependencies (uses httpx already in project)
+- Async methods matching FastAPI's async routers
+- Singleton pattern via `get_llm_service()` (same as EmailService)
+- Provider-agnostic: works with any OpenAI-compatible API via LLM_BASE_URL
+- Service-only (no router/endpoints yet)
+- Graceful degradation: logs warning when unconfigured, raises clear error on use
+
+## Test Results
+- 17 unit tests (schemas, init, chat, ask, singleton, error handling)
+- All 17 pass; full suite: 374 passed (no regressions)
+
+## Files Created
+- `app/llm/__init__.py`
+- `app/llm/schemas.py`
+- `app/llm/service.py`
+- `tests/test_llm/__init__.py`
+- `tests/test_llm/test_llm_service.py`
+
+## Files Modified
+- `app/config.py` - Added LLM settings
+- `.env.example` - Added LLM config section
+
+---
+
 # Email-Based User Invitations in Admin Panel
 
 ## Current Task

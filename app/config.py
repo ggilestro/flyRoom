@@ -55,6 +55,13 @@ class Settings(BaseSettings):
     # Cron/scheduler settings
     cron_secret_key: str = ""  # Secret key for cron endpoints (empty = no auth)
 
+    # LLM / AI settings (OpenRouter)
+    llm_api_key: str = ""
+    llm_base_url: str = "https://openrouter.ai/api/v1"
+    llm_default_model: str = "anthropic/claude-sonnet-4"
+    llm_temperature: float = 0.7
+    llm_max_tokens: int = 1024
+
 
 @lru_cache
 def get_settings() -> Settings:
