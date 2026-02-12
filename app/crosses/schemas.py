@@ -20,7 +20,9 @@ class CrossBase(BaseModel):
 class CrossCreate(CrossBase):
     """Schema for creating a cross."""
 
-    pass
+    target_genotype: str | None = None
+    flip_days: int = Field(5, ge=1, le=30)
+    virgin_collection_days: int = Field(12, ge=1, le=60)
 
 
 class CrossUpdate(BaseModel):
@@ -32,6 +34,9 @@ class CrossUpdate(BaseModel):
     status: CrossStatus | None = None
     notes: str | None = None
     offspring_id: str | None = None
+    target_genotype: str | None = None
+    flip_days: int | None = Field(None, ge=1, le=30)
+    virgin_collection_days: int | None = Field(None, ge=1, le=60)
 
 
 class StockSummary(BaseModel):
@@ -40,6 +45,9 @@ class StockSummary(BaseModel):
     id: str
     stock_id: str
     genotype: str
+    shortname: str | None = None
+    original_genotype: str | None = None
+    notes: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -57,6 +65,16 @@ class CrossResponse(BaseModel):
     status: CrossStatus
     expected_outcomes: dict | None = None
     notes: str | None
+    target_genotype: str | None = None
+    flip_days: int | None = None
+    virgin_collection_days: int | None = None
+    # Computed timeline fields (only for in_progress crosses)
+    flip_due_date: date | None = None
+    virgin_collection_due_date: date | None = None
+    days_until_flip: int | None = None
+    days_until_virgin_collection: int | None = None
+    flip_overdue: bool = False
+    virgin_collection_overdue: bool = False
     created_at: datetime
     created_by_name: str | None = None
 
@@ -87,3 +105,39 @@ class CrossComplete(BaseModel):
 
     offspring_id: str | None = None
     notes: str | None = None
+
+
+class ParentStockInfo(BaseModel):
+    """Rich context about a parent stock for LLM genotype prediction."""
+
+    genotype: str
+    original_genotype: str | None = None
+    shortname: str | None = None
+    notes: str | None = None
+    chromosome_info: str | None = None
+
+
+class SuggestGenotypesRequest(BaseModel):
+    """Request body for suggest-genotypes endpoint."""
+
+    female: ParentStockInfo
+    male: ParentStockInfo
+
+
+class SuggestGenotypesResponse(BaseModel):
+    """Response body for suggest-genotypes endpoint."""
+
+    suggestions: list[str]
+    reasoning: str | None = None
+
+
+class CrossReminderInfo(BaseModel):
+    """Info about a cross needing a timeline reminder."""
+
+    cross_id: str
+    cross_name: str | None
+    female_stock_id: str
+    male_stock_id: str
+    event_type: str  # "flip" or "virgin_collection"
+    due_date: date
+    days_until: int  # negative = overdue

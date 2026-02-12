@@ -14,12 +14,17 @@ services:
       - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL}
       - SMTP_FROM_NAME=${SMTP_FROM_NAME}
       - SMTP_USE_TLS=${SMTP_USE_TLS:-true}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_BASE_URL=${LLM_BASE_URL}
+      - LLM_DEFAULT_MODEL=${LLM_DEFAULT_MODEL}
+      - LLM_REASONING_MODEL=${LLM_REASONING_MODEL}
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - ./uploads:/app/uploads
       - ./app:/app/app:ro  # For development hot reload
+      - ./alembic:/app/alembic:ro  # For migrations
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     restart: unless-stopped
 

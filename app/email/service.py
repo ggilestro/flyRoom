@@ -468,6 +468,93 @@ class EmailService:
         """
         return self.send_email(to_email, subject, body_html)
 
+    def send_cross_reminder_email(
+        self,
+        to_email: str,
+        user_name: str,
+        reminders: list,
+        tenant_name: str,
+    ) -> bool:
+        """Send cross timeline reminder email about upcoming vial flips or virgin collections.
+
+        Args:
+            to_email: Recipient email address.
+            user_name: Recipient's name.
+            reminders: List of CrossReminderInfo objects.
+            tenant_name: Lab/tenant name.
+
+        Returns:
+            bool: True if sent successfully.
+        """
+        flip_reminders = [r for r in reminders if r.event_type == "flip"]
+        vc_reminders = [r for r in reminders if r.event_type == "virgin_collection"]
+
+        def build_reminder_row(reminder) -> str:
+            if reminder.days_until < 0:
+                status_color = "#dc2626"
+                status_text = f"{abs(reminder.days_until)}d overdue"
+            elif reminder.days_until == 0:
+                status_color = "#f59e0b"
+                status_text = "Due today"
+            else:
+                status_color = "#16a34a"
+                status_text = f"Due in {reminder.days_until}d"
+
+            event_label = "Flip vials" if reminder.event_type == "flip" else "Collect virgins"
+            cross_name = (
+                reminder.cross_name or f"{reminder.female_stock_id} x {reminder.male_stock_id}"
+            )
+
+            return f"""
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+                <td style="padding: 12px 8px; font-weight: 500;">{cross_name}</td>
+                <td style="padding: 12px 8px;">{event_label}</td>
+                <td style="padding: 12px 8px;">{reminder.due_date}</td>
+                <td style="padding: 12px 8px; color: {status_color}; font-weight: 600;">
+                    {status_text}
+                </td>
+            </tr>
+            """
+
+        rows = ""
+        for r in flip_reminders:
+            rows += build_reminder_row(r)
+        for r in vc_reminders:
+            rows += build_reminder_row(r)
+
+        subject = f"{self.app_name}: {len(reminders)} cross event(s) need attention"
+        body_html = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <h2>Hello {user_name},</h2>
+            <p>This is a reminder from {self.app_name} about cross timeline events in <strong>{tenant_name}</strong> that need attention.</p>
+
+            <table style="width: 100%; border-collapse: collapse; margin: 24px 0;">
+                <thead>
+                    <tr style="background-color: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                        <th style="padding: 12px 8px; text-align: left; font-weight: 600;">Cross</th>
+                        <th style="padding: 12px 8px; text-align: left; font-weight: 600;">Event</th>
+                        <th style="padding: 12px 8px; text-align: left; font-weight: 600;">Due Date</th>
+                        <th style="padding: 12px 8px; text-align: left; font-weight: 600;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows}
+                </tbody>
+            </table>
+
+            <p>Please log in to {self.app_name} to manage your crosses.</p>
+
+            <p style="color: #6b7280; font-size: 14px; margin-top: 32px;">
+                You can adjust cross timing defaults when planning new crosses.
+            </p>
+
+            <p>Best regards,<br>The {self.app_name} Team</p>
+        </body>
+        </html>
+        """
+        return self.send_email(to_email, subject, body_html)
+
 
 # Singleton instance
 _email_service: EmailService | None = None

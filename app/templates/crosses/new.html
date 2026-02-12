@@ -14,107 +14,437 @@
         </ol>
     </nav>
     <h1 class="mt-4 text-2xl font-semibold text-gray-900">Plan New Cross</h1>
+    <p class="mt-1 text-sm text-gray-500">Follow the steps below to plan a cross between two stocks</p>
 </div>
 
 <div id="form-message"></div>
 
-<form class="bg-white shadow rounded-lg p-6 space-y-6" x-data="crossForm()" @submit.prevent="submitForm($event)">
-    <div>
-        <label for="name" class="block text-sm font-medium text-gray-700">Cross Name</label>
-        <input type="text" name="name" id="name"
-               placeholder="Optional name for this cross"
-               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
-    </div>
+<div x-data="crossWizard()"
+     @stock-selected.window="handleStockSelected($event.detail)"
+     @stock-cleared.window="handleStockCleared($event.detail)">
 
-    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2" x-data="stockSelects()" x-init="loadStocks()">
-        <div>
-            <label for="parent_female_id" class="block text-sm font-medium text-gray-700">Female Parent *</label>
-            <select name="parent_female_id" id="parent_female_id" required
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
-                <option value="">Select female parent...</option>
-                <template x-for="stock in stocks" :key="stock.id">
-                    <option :value="stock.id" x-text="stock.stock_id + ' - ' + stock.genotype.substring(0, 50)"></option>
+    <!-- Step Indicator -->
+    <div class="mb-8">
+        <nav aria-label="Progress">
+            <ol class="flex items-center">
+                <template x-for="(s, i) in steps" :key="i">
+                    <li class="flex items-center" :class="i < steps.length - 1 ? 'flex-1' : ''">
+                        <div class="flex items-center" :class="i > 0 ? 'ml-2' : ''">
+                            <template x-if="step > i + 1">
+                                <div class="flex items-center">
+                                    <span class="flex h-8 w-8 items-center justify-center rounded-full bg-primary-600">
+                                        <svg class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                        </svg>
+                                    </span>
+                                    <span class="ml-2 text-sm font-medium text-primary-600 hidden sm:inline" x-text="s"></span>
+                                </div>
+                            </template>
+                            <template x-if="step === i + 1">
+                                <div class="flex items-center">
+                                    <span class="flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary-600 bg-white">
+                                        <span class="text-sm font-semibold text-primary-600" x-text="i + 1"></span>
+                                    </span>
+                                    <span class="ml-2 text-sm font-medium text-primary-600 hidden sm:inline" x-text="s"></span>
+                                </div>
+                            </template>
+                            <template x-if="step < i + 1">
+                                <div class="flex items-center">
+                                    <span class="flex h-8 w-8 items-center justify-center rounded-full border-2 border-gray-300 bg-white">
+                                        <span class="text-sm font-medium text-gray-500" x-text="i + 1"></span>
+                                    </span>
+                                    <span class="ml-2 text-sm font-medium text-gray-500 hidden sm:inline" x-text="s"></span>
+                                </div>
+                            </template>
+                        </div>
+                        <template x-if="i < steps.length - 1">
+                            <div class="flex-1 mx-2 sm:mx-4">
+                                <div class="h-0.5" :class="step > i + 1 ? 'bg-primary-600' : 'bg-gray-300'"></div>
+                            </div>
+                        </template>
+                    </li>
                 </template>
-            </select>
-            <p class="mt-1 text-xs text-gray-500">Virgin female stock</p>
-        </div>
+            </ol>
+        </nav>
+    </div>
 
+    <!-- Step 1: Female Parent -->
+    <div x-show="step === 1" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-lg font-medium text-gray-900 mb-1">Select Female Parent</h2>
+            <p class="text-sm text-gray-500 mb-4">Search for the virgin female stock to use in this cross</p>
+
+            {% set typeahead_id = 'female' %}
+            {% set typeahead_label = 'Female Parent (Virgin)' %}
+            {% set typeahead_role = 'female' %}
+            {% set typeahead_exclude_id = '' %}
+            {% include "components/stock_typeahead.html" %}
+        </div>
+    </div>
+
+    <!-- Step 2: Male Parent -->
+    <div x-show="step === 2" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-lg font-medium text-gray-900 mb-1">Select Male Parent</h2>
+            <p class="text-sm text-gray-500 mb-4">Search for the male stock to cross with</p>
+
+            {% set typeahead_id = 'male' %}
+            {% set typeahead_label = 'Male Parent' %}
+            {% set typeahead_role = 'male' %}
+            {% set typeahead_exclude_id = '' %}
+            {% include "components/stock_typeahead.html" %}
+        </div>
+    </div>
+
+    <!-- Step 3: Target Genotype -->
+    <div x-show="step === 3" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-lg font-medium text-gray-900 mb-1">Target Genotype</h2>
+            <p class="text-sm text-gray-500 mb-4">Optionally specify the desired offspring genotype. You can skip this step.</p>
+
+            <!-- Parent summary -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div class="bg-pink-50 border border-pink-200 rounded-md p-3">
+                    <div class="text-xs font-medium text-pink-700 uppercase tracking-wide mb-1">Female</div>
+                    <div class="text-sm font-medium text-gray-900" x-text="selectedFemale?.stock_id || '-'"></div>
+                    <div class="text-xs text-gray-500 mt-0.5 truncate" x-text="selectedFemale?.genotype || ''"></div>
+                </div>
+                <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
+                    <div class="text-xs font-medium text-blue-700 uppercase tracking-wide mb-1">Male</div>
+                    <div class="text-sm font-medium text-gray-900" x-text="selectedMale?.stock_id || '-'"></div>
+                    <div class="text-xs text-gray-500 mt-0.5 truncate" x-text="selectedMale?.genotype || ''"></div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Desired offspring genotype</label>
+                <textarea x-model="targetGenotype" rows="2"
+                          placeholder="e.g., w; UAS-GFP/CyO; da-GAL4/TM3"
+                          class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"></textarea>
+            </div>
+
+            <!-- AI Suggest button -->
+            <div class="mb-4">
+                <button type="button" @click="suggestGenotypes()" :disabled="suggestingGenotypes"
+                        class="inline-flex items-center rounded-md bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200 hover:bg-indigo-100 disabled:opacity-50">
+                    <template x-if="!suggestingGenotypes">
+                        <svg class="-ml-0.5 mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                    </template>
+                    <template x-if="suggestingGenotypes">
+                        <svg class="animate-spin -ml-0.5 mr-1.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </template>
+                    <span x-text="suggestingGenotypes ? 'Analyzing genetics...' : 'Suggest with AI'"></span>
+                </button>
+            </div>
+
+            <!-- Suggestion error -->
+            <div x-show="suggestError" class="mb-4 rounded-md bg-yellow-50 p-3">
+                <p class="text-sm text-yellow-700" x-text="suggestError"></p>
+            </div>
+
+            <!-- AI Suggestions -->
+            <div x-show="genotypeSuggestions.length > 0" class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">AI Suggested Genotypes</label>
+                <div class="space-y-2">
+                    <template x-for="(suggestion, idx) in genotypeSuggestions" :key="idx">
+                        <button type="button" @click="targetGenotype = suggestion"
+                                class="block w-full text-left px-3 py-2 text-sm border rounded-md hover:bg-primary-50 hover:border-primary-300 transition-colors"
+                                :class="targetGenotype === suggestion ? 'bg-primary-50 border-primary-300 text-primary-800' : 'border-gray-200 text-gray-700'">
+                            <span x-text="suggestion"></span>
+                        </button>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Reasoning (collapsible) -->
+            <div x-show="genotypeReasoning" class="mb-4">
+                <button type="button" @click="showReasoning = !showReasoning"
+                        class="flex items-center text-sm text-gray-500 hover:text-gray-700">
+                    <svg class="h-4 w-4 mr-1 transition-transform" :class="showReasoning ? 'rotate-90' : ''" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                    </svg>
+                    Chromosome analysis
+                </button>
+                <div x-show="showReasoning" x-transition class="mt-2 p-3 bg-gray-50 rounded-md text-xs text-gray-600 whitespace-pre-wrap" x-text="genotypeReasoning"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 4: Timing -->
+    <div x-show="step === 4" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-lg font-medium text-gray-900 mb-1">Cross Details & Timing</h2>
+            <p class="text-sm text-gray-500 mb-4">Set the cross name, dates, and vial management timeline</p>
+
+            <div class="space-y-4">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Cross Name</label>
+                    <input type="text" x-model="crossName" id="name"
+                           placeholder="Optional name for this cross"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                </div>
+
+                <div>
+                    <label for="planned_date" class="block text-sm font-medium text-gray-700">Planned Date</label>
+                    <input type="date" x-model="plannedDate" id="planned_date"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="flip_days" class="block text-sm font-medium text-gray-700">Flip vials after (days)</label>
+                        <input type="number" x-model.number="flipDays" id="flip_days" min="1" max="30"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                        <p class="mt-1 text-xs text-gray-500">Transfer adults to new vial to separate generations</p>
+                    </div>
+                    <div>
+                        <label for="vc_days" class="block text-sm font-medium text-gray-700">Collect virgins after (days)</label>
+                        <input type="number" x-model.number="virginCollectionDays" id="vc_days" min="1" max="60"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                        <p class="mt-1 text-xs text-gray-500">Collect virgin F1 females for further crosses</p>
+                    </div>
+                </div>
+
+                <!-- Live preview of due dates -->
+                <div x-show="plannedDate" class="bg-gray-50 rounded-md p-3">
+                    <div class="text-sm font-medium text-gray-700 mb-2">Timeline Preview</div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="inline-block w-2 h-2 rounded-full bg-amber-400"></span>
+                            <span class="text-gray-600">Flip vials:</span>
+                            <span class="font-medium" x-text="computeDate(flipDays)"></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="inline-block w-2 h-2 rounded-full bg-green-400"></span>
+                            <span class="text-gray-600">Collect virgins:</span>
+                            <span class="font-medium" x-text="computeDate(virginCollectionDays)"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="notes" class="block text-sm font-medium text-gray-700">Notes</label>
+                    <textarea x-model="notes" id="notes" rows="3"
+                              placeholder="Additional information about this cross"
+                              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 5: Review -->
+    <div x-show="step === 5" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-lg font-medium text-gray-900 mb-4">Review & Create</h2>
+
+            <dl class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="bg-pink-50 border border-pink-200 rounded-md p-3">
+                        <dt class="text-xs font-medium text-pink-700 uppercase tracking-wide">Female Parent</dt>
+                        <dd class="mt-1">
+                            <div class="text-sm font-medium text-gray-900" x-text="selectedFemale?.stock_id"></div>
+                            <div class="text-xs text-gray-500 mt-0.5 break-all" x-text="selectedFemale?.genotype"></div>
+                        </dd>
+                    </div>
+                    <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
+                        <dt class="text-xs font-medium text-blue-700 uppercase tracking-wide">Male Parent</dt>
+                        <dd class="mt-1">
+                            <div class="text-sm font-medium text-gray-900" x-text="selectedMale?.stock_id"></div>
+                            <div class="text-xs text-gray-500 mt-0.5 break-all" x-text="selectedMale?.genotype"></div>
+                        </dd>
+                    </div>
+                </div>
+
+                <div x-show="crossName">
+                    <dt class="text-sm font-medium text-gray-500">Cross Name</dt>
+                    <dd class="mt-1 text-sm text-gray-900" x-text="crossName"></dd>
+                </div>
+
+                <div x-show="targetGenotype">
+                    <dt class="text-sm font-medium text-gray-500">Target Genotype</dt>
+                    <dd class="mt-1 text-sm text-gray-900 font-mono bg-gray-50 p-2 rounded" x-text="targetGenotype"></dd>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Planned Date</dt>
+                        <dd class="mt-1 text-sm text-gray-900" x-text="plannedDate || 'Not set'"></dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Flip Vials</dt>
+                        <dd class="mt-1 text-sm text-gray-900" x-text="flipDays + ' days after mating'"></dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Collect Virgins</dt>
+                        <dd class="mt-1 text-sm text-gray-900" x-text="virginCollectionDays + ' days after mating'"></dd>
+                    </div>
+                </div>
+
+                <div x-show="notes">
+                    <dt class="text-sm font-medium text-gray-500">Notes</dt>
+                    <dd class="mt-1 text-sm text-gray-900" x-text="notes"></dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="mt-6 flex justify-between">
         <div>
-            <label for="parent_male_id" class="block text-sm font-medium text-gray-700">Male Parent *</label>
-            <select name="parent_male_id" id="parent_male_id" required
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
-                <option value="">Select male parent...</option>
-                <template x-for="stock in stocks" :key="stock.id">
-                    <option :value="stock.id" x-text="stock.stock_id + ' - ' + stock.genotype.substring(0, 50)"></option>
-                </template>
-            </select>
-        </div>
-    </div>
-
-    <div>
-        <label for="planned_date" class="block text-sm font-medium text-gray-700">Planned Date</label>
-        <input type="date" name="planned_date" id="planned_date"
-               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
-    </div>
-
-    <div>
-        <label for="notes" class="block text-sm font-medium text-gray-700">Notes</label>
-        <textarea name="notes" id="notes" rows="3"
-                  placeholder="Additional information about this cross"
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"></textarea>
-    </div>
-
-    <div class="flex justify-end space-x-3">
-        <a href="/crosses" class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
-            Cancel
-        </a>
-        <button type="submit" :disabled="loading"
-                class="inline-flex items-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 disabled:opacity-50">
-            <span x-show="loading" class="mr-2">
-                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            <button x-show="step > 1" type="button" @click="step--"
+                    class="inline-flex items-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                <svg class="-ml-0.5 mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                 </svg>
-            </span>
-            <span x-text="loading ? 'Saving...' : 'Plan Cross'"></span>
-        </button>
+                Back
+            </button>
+            <a x-show="step === 1" href="/crosses"
+               class="inline-flex items-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                Cancel
+            </a>
+        </div>
+        <div>
+            <button x-show="step < 5" type="button" @click="nextStep()" :disabled="!canAdvance()"
+                    class="inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                <span x-text="step === 3 ? 'Next (or skip)' : 'Next'"></span>
+                <svg class="ml-1.5 -mr-0.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+            <button x-show="step === 5" type="button" @click="submitCross()" :disabled="submitting"
+                    class="inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 disabled:opacity-50">
+                <span x-show="submitting" class="mr-2">
+                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </span>
+                <span x-text="submitting ? 'Creating...' : 'Create Cross'"></span>
+            </button>
+        </div>
     </div>
-</form>
+</div>
 
 <script>
-function stockSelects() {
+function crossWizard() {
     return {
-        stocks: [],
-        async loadStocks() {
+        step: 1,
+        steps: ['Female', 'Male', 'Genotype', 'Timing', 'Review'],
+        selectedFemale: null,
+        selectedMale: null,
+        targetGenotype: '',
+        crossName: '',
+        plannedDate: new Date().toISOString().split('T')[0],
+        flipDays: 5,
+        virginCollectionDays: 12,
+        notes: '',
+        submitting: false,
+
+        // AI suggestion state
+        suggestingGenotypes: false,
+        genotypeSuggestions: [],
+        genotypeReasoning: null,
+        showReasoning: false,
+        suggestError: '',
+
+        handleStockSelected(detail) {
+            if (detail.role === 'female') {
+                this.selectedFemale = detail.stock;
+            } else if (detail.role === 'male') {
+                this.selectedMale = detail.stock;
+            }
+        },
+
+        handleStockCleared(detail) {
+            if (detail.role === 'female') {
+                this.selectedFemale = null;
+            } else if (detail.role === 'male') {
+                this.selectedMale = null;
+            }
+        },
+
+        canAdvance() {
+            if (this.step === 1) return this.selectedFemale !== null;
+            if (this.step === 2) return this.selectedMale !== null;
+            return true; // Steps 3 and 4 are always advanceable
+        },
+
+        nextStep() {
+            if (this.canAdvance() && this.step < 5) {
+                this.step++;
+            }
+        },
+
+        computeDate(daysAfter) {
+            if (!this.plannedDate) return '-';
+            const d = new Date(this.plannedDate);
+            d.setDate(d.getDate() + daysAfter);
+            return d.toLocaleDateString();
+        },
+
+        async suggestGenotypes() {
+            if (!this.selectedFemale || !this.selectedMale) return;
+
+            this.suggestingGenotypes = true;
+            this.suggestError = '';
+            this.genotypeSuggestions = [];
+            this.genotypeReasoning = null;
+
             try {
-                const response = await fetch('/api/stocks?page_size=100', {
-                    credentials: 'include'
+                const response = await fetch('/api/crosses/suggest-genotypes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        female: {
+                            genotype: this.selectedFemale.genotype,
+                            original_genotype: this.selectedFemale.original_genotype || null,
+                            shortname: this.selectedFemale.shortname || null,
+                            notes: this.selectedFemale.notes || null,
+                        },
+                        male: {
+                            genotype: this.selectedMale.genotype,
+                            original_genotype: this.selectedMale.original_genotype || null,
+                            shortname: this.selectedMale.shortname || null,
+                            notes: this.selectedMale.notes || null,
+                        }
+                    })
                 });
+
                 if (response.ok) {
                     const data = await response.json();
-                    this.stocks = data.items || [];
+                    this.genotypeSuggestions = data.suggestions || [];
+                    this.genotypeReasoning = data.reasoning || null;
+                } else {
+                    const err = await response.json();
+                    this.suggestError = err.detail || 'Failed to get suggestions';
                 }
             } catch (error) {
-                console.error('Error loading stocks:', error);
+                console.error('Suggest error:', error);
+                this.suggestError = 'Network error. Please try again.';
+            } finally {
+                this.suggestingGenotypes = false;
             }
-        }
-    }
-}
+        },
 
-function crossForm() {
-    return {
-        loading: false,
-        async submitForm(event) {
-            this.loading = true;
-            const form = event.target;
-            const formData = new FormData(form);
+        async submitCross() {
+            if (!this.selectedFemale || !this.selectedMale) return;
 
+            this.submitting = true;
             const data = {
-                name: formData.get('name') || null,
-                parent_female_id: formData.get('parent_female_id'),
-                parent_male_id: formData.get('parent_male_id'),
-                planned_date: formData.get('planned_date') || null,
-                notes: formData.get('notes') || null,
+                name: this.crossName || null,
+                parent_female_id: this.selectedFemale.id,
+                parent_male_id: this.selectedMale.id,
+                planned_date: this.plannedDate || null,
+                notes: this.notes || null,
+                target_genotype: this.targetGenotype || null,
+                flip_days: this.flipDays,
+                virgin_collection_days: this.virginCollectionDays,
             };
 
             try {
@@ -136,6 +466,7 @@ function crossForm() {
                         <div class="mb-4 rounded-md bg-red-50 p-4">
                             <p class="text-sm text-red-700">${errorMsg}</p>
                         </div>`;
+                    window.scrollTo(0, 0);
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -144,8 +475,9 @@ function crossForm() {
                     <div class="mb-4 rounded-md bg-red-50 p-4">
                         <p class="text-sm text-red-700">An error occurred. Please try again.</p>
                     </div>`;
+                window.scrollTo(0, 0);
             } finally {
-                this.loading = false;
+                this.submitting = false;
             }
         }
     }

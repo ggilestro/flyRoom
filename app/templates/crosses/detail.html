@@ -40,7 +40,8 @@
     </template>
 
     <template x-if="!loading && !error && cross">
-        <div>
+        <div class="space-y-6">
+            <!-- Main info card -->
             <div class="bg-white shadow rounded-lg p-6">
                 <div class="flex items-center justify-between mb-6">
                     <div>
@@ -78,18 +79,24 @@
                         <dt class="text-sm font-medium text-gray-500">Female Parent</dt>
                         <dd class="mt-1">
                             <template x-if="cross.parent_female">
-                                <a :href="'/stocks/' + cross.parent_female.id" class="text-primary-600 hover:text-primary-500" x-text="cross.parent_female.stock_id"></a>
+                                <div>
+                                    <a :href="'/stocks/' + cross.parent_female.id" class="text-primary-600 hover:text-primary-500 font-medium" x-text="cross.parent_female.stock_id"></a>
+                                    <span x-show="cross.parent_female.shortname" class="ml-1 text-xs text-gray-500" x-text="cross.parent_female.shortname"></span>
+                                    <div class="text-xs text-gray-400 mt-0.5 truncate" x-text="cross.parent_female.genotype"></div>
+                                </div>
                             </template>
-                            <span x-show="!cross.parent_female" class="text-gray-500">-</span>
                         </dd>
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-gray-500">Male Parent</dt>
                         <dd class="mt-1">
                             <template x-if="cross.parent_male">
-                                <a :href="'/stocks/' + cross.parent_male.id" class="text-primary-600 hover:text-primary-500" x-text="cross.parent_male.stock_id"></a>
+                                <div>
+                                    <a :href="'/stocks/' + cross.parent_male.id" class="text-primary-600 hover:text-primary-500 font-medium" x-text="cross.parent_male.stock_id"></a>
+                                    <span x-show="cross.parent_male.shortname" class="ml-1 text-xs text-gray-500" x-text="cross.parent_male.shortname"></span>
+                                    <div class="text-xs text-gray-400 mt-0.5 truncate" x-text="cross.parent_male.genotype"></div>
+                                </div>
                             </template>
-                            <span x-show="!cross.parent_male" class="text-gray-500">-</span>
                         </dd>
                     </div>
                     <div>
@@ -99,6 +106,10 @@
                     <div>
                         <dt class="text-sm font-medium text-gray-500">Executed Date</dt>
                         <dd class="mt-1 text-sm text-gray-900" x-text="cross.executed_date || '-'"></dd>
+                    </div>
+                    <div class="sm:col-span-2" x-show="cross.target_genotype">
+                        <dt class="text-sm font-medium text-gray-500">Target Genotype</dt>
+                        <dd class="mt-1 text-sm text-gray-900 font-mono bg-gray-50 p-2 rounded" x-text="cross.target_genotype"></dd>
                     </div>
                     <div class="sm:col-span-2" x-show="cross.offspring">
                         <dt class="text-sm font-medium text-gray-500">Offspring Stock</dt>
@@ -116,6 +127,93 @@
                     </div>
                 </dl>
             </div>
+
+            <!-- Timeline section (in_progress only) -->
+            <template x-if="cross.status === 'in_progress' && cross.executed_date">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Flip vials card -->
+                    <div class="bg-white shadow rounded-lg p-4 border-l-4"
+                         :class="{
+                             'border-red-500': cross.flip_overdue,
+                             'border-amber-400': !cross.flip_overdue && cross.days_until_flip !== null && cross.days_until_flip <= 1,
+                             'border-green-400': cross.days_until_flip !== null && cross.days_until_flip > 1
+                         }">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-900">Flip Vials</h3>
+                                <p class="text-xs text-gray-500 mt-0.5">Transfer adults to new vial</p>
+                            </div>
+                            <div class="text-right">
+                                <template x-if="cross.flip_overdue">
+                                    <div>
+                                        <span class="text-lg font-bold text-red-600" x-text="Math.abs(cross.days_until_flip) + 'd'"></span>
+                                        <span class="text-xs text-red-500 block">overdue</span>
+                                    </div>
+                                </template>
+                                <template x-if="!cross.flip_overdue && cross.days_until_flip === 0">
+                                    <div>
+                                        <span class="text-lg font-bold text-amber-600">Today</span>
+                                    </div>
+                                </template>
+                                <template x-if="!cross.flip_overdue && cross.days_until_flip > 0">
+                                    <div>
+                                        <span class="text-lg font-bold text-green-600" x-text="cross.days_until_flip + 'd'"></span>
+                                        <span class="text-xs text-gray-500 block">remaining</span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-xs text-gray-400" x-text="'Due: ' + cross.flip_due_date"></div>
+                    </div>
+
+                    <!-- Virgin collection card -->
+                    <div class="bg-white shadow rounded-lg p-4 border-l-4"
+                         :class="{
+                             'border-red-500': cross.virgin_collection_overdue,
+                             'border-amber-400': !cross.virgin_collection_overdue && cross.days_until_virgin_collection !== null && cross.days_until_virgin_collection <= 1,
+                             'border-green-400': cross.days_until_virgin_collection !== null && cross.days_until_virgin_collection > 1
+                         }">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-900">Collect Virgins</h3>
+                                <p class="text-xs text-gray-500 mt-0.5">Collect F1 virgin females</p>
+                            </div>
+                            <div class="text-right">
+                                <template x-if="cross.virgin_collection_overdue">
+                                    <div>
+                                        <span class="text-lg font-bold text-red-600" x-text="Math.abs(cross.days_until_virgin_collection) + 'd'"></span>
+                                        <span class="text-xs text-red-500 block">overdue</span>
+                                    </div>
+                                </template>
+                                <template x-if="!cross.virgin_collection_overdue && cross.days_until_virgin_collection === 0">
+                                    <div>
+                                        <span class="text-lg font-bold text-amber-600">Today</span>
+                                    </div>
+                                </template>
+                                <template x-if="!cross.virgin_collection_overdue && cross.days_until_virgin_collection > 0">
+                                    <div>
+                                        <span class="text-lg font-bold text-green-600" x-text="cross.days_until_virgin_collection + 'd'"></span>
+                                        <span class="text-xs text-gray-500 block">remaining</span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-xs text-gray-400" x-text="'Due: ' + cross.virgin_collection_due_date"></div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Expected outcomes (if any) -->
+            <template x-if="cross.expected_outcomes && cross.expected_outcomes.suggestions">
+                <div class="bg-white shadow rounded-lg p-6">
+                    <h3 class="text-sm font-medium text-gray-900 mb-3">Expected Offspring Genotypes</h3>
+                    <div class="space-y-2">
+                        <template x-for="(genotype, idx) in cross.expected_outcomes.suggestions" :key="idx">
+                            <div class="text-sm font-mono text-gray-700 bg-gray-50 px-3 py-2 rounded" x-text="genotype"></div>
+                        </template>
+                    </div>
+                </div>
+            </template>
         </div>
     </template>
 </div>

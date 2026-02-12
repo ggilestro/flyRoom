@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_base_url: str = "https://openrouter.ai/api/v1"
     llm_default_model: str = "anthropic/claude-sonnet-4"
+    llm_reasoning_model: str = (
+        ""  # Thinking/reasoning model for complex tasks (e.g., genotype prediction)
+    )
     llm_temperature: float = 0.7
     llm_max_tokens: int = 1024
 

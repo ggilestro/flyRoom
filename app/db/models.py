@@ -480,6 +480,7 @@ class Stock(Base):
     )
     stock_id: Mapped[str] = mapped_column(String(100), nullable=False)
     genotype: Mapped[str] = mapped_column(Text, nullable=False)
+    shortname: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Origin/Source tracking
     origin: Mapped[StockOrigin] = mapped_column(
@@ -670,6 +671,11 @@ class Cross(Base):
     )
     expected_outcomes: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_genotype: Mapped[str | None] = mapped_column(Text, nullable=True)
+    flip_days: Mapped[int | None] = mapped_column(Integer, nullable=True, server_default="5")
+    virgin_collection_days: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, server_default="12"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     created_by_id: Mapped[str | None] = mapped_column(
         CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True

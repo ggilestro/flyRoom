@@ -1,3 +1,110 @@
+# Cross Planning Feature Enhancement
+
+## Current Task
+Enhance the cross-planning UI with interactive stock search, AI-powered genotype prediction, and timeline reminders for vial flips and virgin collection.
+
+**Date Started:** 2026-02-12
+**Date Completed:** 2026-02-12
+**Status:** Complete
+
+### Implementation Summary
+
+#### Database Migration (`alembic/versions/012_add_cross_timeline_fields.py`)
+- Added `flip_days` (Integer, nullable, server_default 5) to crosses table
+- Added `virgin_collection_days` (Integer, nullable, server_default 12) to crosses table
+- Added `target_genotype` (Text, nullable) to crosses table
+
+#### Config Changes
+- Added `llm_reasoning_model` setting to `app/config.py` (falls back to `llm_default_model` when empty)
+- Added `LLM_REASONING_MODEL` env var to `docker-compose.yml`
+
+#### Schema Changes (`app/crosses/schemas.py`)
+- `CrossCreate`: added `target_genotype`, `flip_days` (default 5), `virgin_collection_days` (default 12)
+- `CrossUpdate`: added `target_genotype`, `flip_days`, `virgin_collection_days`
+- `CrossResponse`: added `target_genotype`, `flip_days`, `virgin_collection_days`, computed timeline fields
+- `StockSummary`: added `shortname`, `original_genotype`, `notes` for richer context
+- New schemas: `ParentStockInfo`, `SuggestGenotypesRequest/Response`, `CrossReminderInfo`
+
+#### Service Layer (`app/crosses/service.py`)
+- Added `_compute_timeline()` for flip/virgin collection date calculation
+- Updated `_stock_to_summary()` to include shortname, original_genotype, notes
+- Updated `_cross_to_response()` to include timeline fields
+- Updated `create_cross()` and `update_cross()` for new fields
+- Added `get_crosses_needing_reminders()` for email reminders
+
+#### API Endpoints (`app/crosses/router.py`)
+- `POST /api/crosses/suggest-genotypes` — LLM-powered offspring genotype prediction
+- `POST /api/crosses/send-reminders` — Cron-triggered cross timeline email reminders
+
+#### Email Reminders
+- Created `app/scheduler/cross_reminders.py` (iterates tenants, sends to admins)
+- Added `send_cross_reminder_email()` to `app/email/service.py`
+
+#### UI Templates
+- **Stock typeahead** (`app/templates/components/stock_typeahead.html`): Reusable search-and-select component
+- **Cross wizard** (`app/templates/crosses/new.html`): 5-step wizard (Female, Male, Genotype, Timing, Review)
+- **Cross detail** (`app/templates/crosses/detail.html`): Timeline cards with color-coded status
+- **Cross list** (`app/templates/crosses/list.html`): Timeline dot indicators column
+
+### Tests (`tests/test_crosses/test_cross_timeline.py`)
+- 12 new tests covering:
+  1. Create cross with timeline fields
+  2. Default timeline values
+  3. Timeline computation — upcoming
+  4. Timeline computation — overdue
+  5. Timeline only for in_progress status
+  6. Update timeline fields
+  7. suggest-genotypes — success (mock LLM)
+  8. suggest-genotypes — LLM not configured (400)
+  9. suggest-genotypes — LLM error (500)
+  10. StockSummary includes shortname
+  11. Reminder retrieval — due crosses found
+  12. Reminder retrieval — not-yet-due excluded
+
+### Files Created
+- `alembic/versions/012_add_cross_timeline_fields.py`
+- `app/scheduler/cross_reminders.py`
+- `app/templates/components/stock_typeahead.html`
+- `tests/test_crosses/test_cross_timeline.py`
+
+### Files Modified
+- `app/db/models.py` — Cross model (3 new fields)
+- `app/config.py` — `llm_reasoning_model` setting
+- `docker-compose.yml` — `LLM_REASONING_MODEL` env var
+- `app/crosses/schemas.py` — Enhanced schemas + new request/response types
+- `app/crosses/service.py` — Timeline computation + reminders
+- `app/crosses/router.py` — suggest-genotypes + send-reminders endpoints
+- `app/email/service.py` — `send_cross_reminder_email()` method
+- `app/templates/crosses/new.html` — 5-step wizard
+- `app/templates/crosses/detail.html` — Timeline cards
+- `app/templates/crosses/list.html` — Timeline column
+
+---
+
+# Simplify Stock Import Page
+
+## Current Task
+Simplify and clarify the stock import page's Step 1 (Upload) section.
+
+**Date Started:** 2026-02-12
+**Date Completed:** 2026-02-12
+**Status:** Complete
+
+### Changes Made
+1. **Single template download**: Replaced three-card grid (Basic/Repository/Full) with a single "Download Template CSV" button pointing to the full template
+2. **Fixed incorrect intro text**: Changed "at minimum two columns: a unique ID and the genotype" to correctly state "either a genotype or a stock center reference (repository + stock number)"
+3. **Two-path callout**: Replaced Quick Summary bullets with side-by-side Path A (genotype) / Path B (repository + stock ID) cards
+4. **Updated example table**: Replaced separate BDSC#/VDRC# columns with unified `repository` + `repository_stock_id` columns showing realistic mixed-source scenarios (BDSC, VDRC, NIG, internal, external)
+5. **Improved field descriptions**: Updated genotype and repository_stock_id descriptions to mention FlyBase auto-fetch and repo-specific column name auto-detection
+
+### Files Modified
+- `app/templates/stocks/import.html` — Step 1 template section (lines ~77-92) and help section (lines ~94-240)
+
+### Test Results
+- 84 import tests pass, no regressions
+
+---
+
 # Stock Import Wizard
 
 ## Current Task

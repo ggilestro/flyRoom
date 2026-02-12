@@ -1,8 +1,9 @@
 """Crosses API routes."""
 
+import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.crosses.schemas import (
@@ -12,10 +13,14 @@ from app.crosses.schemas import (
     CrossResponse,
     CrossSearchParams,
     CrossUpdate,
+    SuggestGenotypesRequest,
+    SuggestGenotypesResponse,
 )
 from app.crosses.service import CrossService, get_cross_service
 from app.db.models import CrossStatus
 from app.dependencies import CurrentTenantId, CurrentUser, get_db
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -26,6 +31,123 @@ def get_service(
 ) -> CrossService:
     """Get cross service dependency."""
     return get_cross_service(db, str(tenant_id))
+
+
+@router.post("/suggest-genotypes", response_model=SuggestGenotypesResponse)
+async def suggest_genotypes(
+    data: SuggestGenotypesRequest,
+    current_user: CurrentUser,
+):
+    """Suggest F1 offspring genotypes using LLM analysis.
+
+    Sends parent stock info (genotype, original_genotype, shortname, notes)
+    to a reasoning LLM to predict likely offspring genotypes.
+
+    Args:
+        data: Request with female and male parent stock info.
+        current_user: Current authenticated user.
+
+    Returns:
+        SuggestGenotypesResponse: Suggested genotypes and chromosome reasoning.
+
+    Raises:
+        HTTPException: If LLM is not configured or request fails.
+    """
+    from app.config import get_settings
+    from app.llm.service import get_llm_service
+
+    llm = get_llm_service()
+    if not llm.configured:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="AI features are not configured. Set LLM_API_KEY in your environment.",
+        )
+
+    settings = get_settings()
+    # Use reasoning model for complex genetics if configured, else default
+    model = settings.llm_reasoning_model or settings.llm_default_model
+
+    # Build rich context for each parent
+    def format_parent(parent, sex: str) -> str:
+        lines = [f"{sex} parent genotype: {parent.genotype}"]
+        if parent.original_genotype:
+            lines.append(f"  Original/FlyBase genotype: {parent.original_genotype}")
+        if parent.shortname:
+            lines.append(f"  Shortname: {parent.shortname}")
+        if parent.notes:
+            lines.append(f"  Notes: {parent.notes}")
+        if parent.chromosome_info:
+            lines.append(f"  User-provided chromosome info: {parent.chromosome_info}")
+        return "\n".join(lines)
+
+    female_info = format_parent(data.female, "Female (virgin)")
+    male_info = format_parent(data.male, "Male")
+
+    prompt = f"""You are a Drosophila genetics expert. Given two parent stocks, predict the most useful F1 offspring genotypes.
+
+{female_info}
+
+{male_info}
+
+Instructions:
+1. First, analyze each component in both genotypes and identify which chromosome each is on. Use your knowledge of Drosophila genetics (e.g., CyO is a chr 2 balancer, TM3/TM6B are chr 3 balancers, attP2 is on chr 3L, attP40 is on chr 2, X-linked markers like w, y, f, etc.).
+2. Then predict 3-5 of the most useful/common F1 offspring genotypes researchers would want.
+3. Use standard Drosophila notation.
+
+Return your response in this exact format:
+REASONING:
+[Your chromosome analysis here - be concise]
+
+GENOTYPES:
+[genotype 1]
+[genotype 2]
+[genotype 3]
+..."""
+
+    try:
+        response = await llm.ask(
+            prompt=prompt,
+            model=model,
+            temperature=0.3,
+            max_tokens=1024,
+        )
+
+        # Parse the structured response
+        reasoning = None
+        suggestions = []
+
+        if "REASONING:" in response and "GENOTYPES:" in response:
+            parts = response.split("GENOTYPES:")
+            reasoning_part = parts[0].replace("REASONING:", "").strip()
+            genotypes_part = parts[1].strip()
+            reasoning = reasoning_part
+            suggestions = [
+                line.strip()
+                for line in genotypes_part.split("\n")
+                if line.strip() and not line.strip().startswith("#")
+            ]
+        else:
+            # Fallback: treat each line as a genotype
+            suggestions = [
+                line.strip()
+                for line in response.split("\n")
+                if line.strip() and not line.strip().startswith("#")
+            ]
+
+        # Limit to 5 suggestions
+        suggestions = suggestions[:5]
+
+        return SuggestGenotypesResponse(
+            suggestions=suggestions,
+            reasoning=reasoning,
+        )
+
+    except ValueError as e:
+        logger.error(f"LLM error suggesting genotypes: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate genotype suggestions",
+        )
 
 
 @router.get("", response_model=CrossListResponse)
@@ -241,3 +363,38 @@ async def delete_cross(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Cross not found",
         )
+
+
+@router.post("/send-reminders")
+async def send_cross_reminders(
+    x_cron_secret: Annotated[str | None, Header()] = None,
+):
+    """Trigger cross timeline reminder emails (for cron jobs).
+
+    Sends reminders about crosses needing vial flips or virgin collection.
+
+    Args:
+        x_cron_secret: Secret key for authentication.
+
+    Returns:
+        dict: Summary of emails sent.
+
+    Raises:
+        HTTPException: If secret key is invalid.
+    """
+    from app.config import get_settings
+
+    settings = get_settings()
+
+    expected_secret = getattr(settings, "cron_secret_key", None)
+    if expected_secret and x_cron_secret != expected_secret:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid cron secret",
+        )
+
+    # Late import to avoid circular imports
+    from app.scheduler.cross_reminders import send_all_cross_reminders
+
+    result = send_all_cross_reminders()
+    return result

@@ -1,0 +1,181 @@
+{#
+  Stock Typeahead Component
+  Usage: {% include "components/stock_typeahead.html" %}
+  Requires parent Alpine.js scope to have:
+    - selectStock(stock, role) method where role is 'female' or 'male'
+    - selectedFemale / selectedMale object (or null)
+
+  Parameters passed via Jinja2:
+    - typeahead_id: unique id prefix (e.g., 'female', 'male')
+    - typeahead_label: label text
+    - typeahead_role: 'female' or 'male'
+    - typeahead_exclude_id: stock id to exclude (optional)
+#}
+
+<div x-data="stockTypeahead('{{ typeahead_role }}', '{{ typeahead_exclude_id | default('') }}')" class="relative">
+    <label class="block text-sm font-medium text-gray-700 mb-1">{{ typeahead_label }}</label>
+
+    <!-- Search input (shown when no stock selected) -->
+    <div x-show="!selectedStock">
+        <div class="relative">
+            <input type="text"
+                   x-model="query"
+                   @input.debounce.300ms="search()"
+                   @focus="showDropdown = results.length > 0"
+                   @keydown.escape="showDropdown = false"
+                   @keydown.arrow-down.prevent="highlightNext()"
+                   @keydown.arrow-up.prevent="highlightPrev()"
+                   @keydown.enter.prevent="selectHighlighted()"
+                   placeholder="Search by stock ID, genotype, or shortname..."
+                   class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border pr-10">
+            <div class="absolute inset-y-0 right-0 flex items-center pr-3" x-show="searching">
+                <svg class="animate-spin h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
+            <div class="absolute inset-y-0 right-0 flex items-center pr-3" x-show="!searching">
+                <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
+        </div>
+
+        <!-- Dropdown results -->
+        <div x-show="showDropdown && results.length > 0"
+             @click.away="showDropdown = false"
+             x-transition:enter="transition ease-out duration-100"
+             x-transition:enter-start="opacity-0 translate-y-1"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             class="absolute z-20 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+            <template x-for="(stock, idx) in results" :key="stock.id">
+                <button type="button"
+                        @click="select(stock)"
+                        @mouseenter="highlighted = idx"
+                        :class="highlighted === idx ? 'bg-primary-50' : 'hover:bg-gray-50'"
+                        class="w-full text-left px-3 py-2 border-b border-gray-100 last:border-0">
+                    <div class="flex items-center justify-between">
+                        <span class="font-medium text-sm text-gray-900" x-text="stock.stock_id"></span>
+                        <span x-show="stock.shortname" class="text-xs text-gray-500 ml-2" x-text="stock.shortname"></span>
+                    </div>
+                    <div class="text-xs text-gray-500 truncate mt-0.5" x-text="stock.genotype"></div>
+                </button>
+            </template>
+        </div>
+
+        <!-- No results -->
+        <div x-show="showDropdown && results.length === 0 && query.length >= 2 && !searching"
+             class="absolute z-20 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 p-3 text-center text-sm text-gray-500">
+            No stocks found
+        </div>
+    </div>
+
+    <!-- Selected stock card -->
+    <div x-show="selectedStock" class="border border-primary-200 bg-primary-50 rounded-md p-3">
+        <div class="flex items-start justify-between">
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                    <span class="font-semibold text-sm text-gray-900" x-text="selectedStock?.stock_id"></span>
+                    <span x-show="selectedStock?.shortname" class="text-xs text-primary-700 bg-primary-100 rounded px-1.5 py-0.5" x-text="selectedStock?.shortname"></span>
+                </div>
+                <div class="text-xs text-gray-600 mt-1 break-all" x-text="selectedStock?.genotype"></div>
+            </div>
+            <button type="button" @click="clear()" class="ml-2 flex-shrink-0 text-gray-400 hover:text-red-500" title="Clear selection">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Hidden input for form submission -->
+    <input type="hidden" :name="'parent_' + role + '_id'" :value="selectedStock?.id || ''">
+</div>
+
+<script>
+function stockTypeahead(role, excludeId) {
+    return {
+        role: role,
+        excludeId: excludeId,
+        query: '',
+        results: [],
+        searching: false,
+        showDropdown: false,
+        highlighted: -1,
+        selectedStock: null,
+
+        async search() {
+            if (this.query.length < 2) {
+                this.results = [];
+                this.showDropdown = false;
+                return;
+            }
+
+            this.searching = true;
+            try {
+                const params = new URLSearchParams({
+                    q: this.query,
+                    page_size: '10',
+                });
+                const response = await fetch('/api/stocks?' + params.toString(), {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    let items = data.items || [];
+                    // Exclude the other selected stock
+                    if (this.excludeId) {
+                        items = items.filter(s => s.id !== this.excludeId);
+                    }
+                    this.results = items;
+                    this.showDropdown = true;
+                    this.highlighted = -1;
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+            } finally {
+                this.searching = false;
+            }
+        },
+
+        select(stock) {
+            this.selectedStock = stock;
+            this.showDropdown = false;
+            this.query = '';
+            this.results = [];
+            // Notify parent scope
+            this.$dispatch('stock-selected', { role: this.role, stock: stock });
+        },
+
+        clear() {
+            this.selectedStock = null;
+            this.query = '';
+            this.results = [];
+            this.$dispatch('stock-cleared', { role: this.role });
+        },
+
+        highlightNext() {
+            if (this.highlighted < this.results.length - 1) {
+                this.highlighted++;
+            }
+        },
+
+        highlightPrev() {
+            if (this.highlighted > 0) {
+                this.highlighted--;
+            }
+        },
+
+        selectHighlighted() {
+            if (this.highlighted >= 0 && this.highlighted < this.results.length) {
+                this.select(this.results[this.highlighted]);
+            }
+        },
+
+        // Allow external setting (e.g., from parent wizard)
+        setStock(stock) {
+            this.selectedStock = stock;
+        }
+    }
+}
+</script>

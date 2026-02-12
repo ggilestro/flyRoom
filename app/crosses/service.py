@@ -1,6 +1,6 @@
 """Cross service layer."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
@@ -9,6 +9,7 @@ from app.crosses.schemas import (
     CrossComplete,
     CrossCreate,
     CrossListResponse,
+    CrossReminderInfo,
     CrossResponse,
     CrossSearchParams,
     CrossUpdate,
@@ -31,12 +32,64 @@ class CrossService:
         self.tenant_id = tenant_id
 
     def _stock_to_summary(self, stock: Stock) -> StockSummary:
-        """Convert stock to summary."""
+        """Convert stock to summary.
+
+        Args:
+            stock: Stock model instance.
+
+        Returns:
+            StockSummary: Brief stock info.
+        """
         return StockSummary(
             id=stock.id,
             stock_id=stock.stock_id,
             genotype=stock.genotype,
+            shortname=stock.shortname,
+            original_genotype=stock.original_genotype,
+            notes=stock.notes,
         )
+
+    def _compute_timeline(self, cross: Cross) -> dict:
+        """Compute timeline fields for an in-progress cross.
+
+        Args:
+            cross: Cross model instance.
+
+        Returns:
+            dict: Timeline fields (flip_due_date, days_until_flip, etc.)
+        """
+        result = {
+            "flip_due_date": None,
+            "virgin_collection_due_date": None,
+            "days_until_flip": None,
+            "days_until_virgin_collection": None,
+            "flip_overdue": False,
+            "virgin_collection_overdue": False,
+        }
+
+        if cross.status != CrossStatus.IN_PROGRESS or not cross.executed_date:
+            return result
+
+        today = date.today()
+        exec_date = (
+            cross.executed_date.date()
+            if isinstance(cross.executed_date, datetime)
+            else cross.executed_date
+        )
+
+        if cross.flip_days is not None:
+            flip_due = exec_date + timedelta(days=cross.flip_days)
+            result["flip_due_date"] = flip_due
+            result["days_until_flip"] = (flip_due - today).days
+            result["flip_overdue"] = result["days_until_flip"] < 0
+
+        if cross.virgin_collection_days is not None:
+            vc_due = exec_date + timedelta(days=cross.virgin_collection_days)
+            result["virgin_collection_due_date"] = vc_due
+            result["days_until_virgin_collection"] = (vc_due - today).days
+            result["virgin_collection_overdue"] = result["days_until_virgin_collection"] < 0
+
+        return result
 
     def _cross_to_response(self, cross: Cross) -> CrossResponse:
         """Convert cross model to response schema.
@@ -47,6 +100,8 @@ class CrossService:
         Returns:
             CrossResponse: Cross response schema.
         """
+        timeline = self._compute_timeline(cross)
+
         return CrossResponse(
             id=cross.id,
             name=cross.name,
@@ -58,6 +113,15 @@ class CrossService:
             status=cross.status,
             expected_outcomes=cross.expected_outcomes,
             notes=cross.notes,
+            target_genotype=cross.target_genotype,
+            flip_days=cross.flip_days,
+            virgin_collection_days=cross.virgin_collection_days,
+            flip_due_date=timeline["flip_due_date"],
+            virgin_collection_due_date=timeline["virgin_collection_due_date"],
+            days_until_flip=timeline["days_until_flip"],
+            days_until_virgin_collection=timeline["days_until_virgin_collection"],
+            flip_overdue=timeline["flip_overdue"],
+            virgin_collection_overdue=timeline["virgin_collection_overdue"],
             created_at=cross.created_at,
             created_by_name=cross.created_by.full_name if cross.created_by else None,
         )
@@ -179,6 +243,9 @@ class CrossService:
             parent_male_id=data.parent_male_id,
             planned_date=planned_datetime,
             notes=data.notes,
+            target_genotype=data.target_genotype,
+            flip_days=data.flip_days,
+            virgin_collection_days=data.virgin_collection_days,
             status=CrossStatus.PLANNED,
             created_by_id=user_id,
         )
@@ -212,6 +279,12 @@ class CrossService:
             cross.status = data.status
         if data.notes is not None:
             cross.notes = data.notes
+        if data.target_genotype is not None:
+            cross.target_genotype = data.target_genotype
+        if data.flip_days is not None:
+            cross.flip_days = data.flip_days
+        if data.virgin_collection_days is not None:
+            cross.virgin_collection_days = data.virgin_collection_days
         if data.offspring_id is not None:
             # Validate offspring exists
             offspring = (
@@ -332,6 +405,75 @@ class CrossService:
             )
             .count()
         )
+
+    def get_crosses_needing_reminders(self) -> list[CrossReminderInfo]:
+        """Get in-progress crosses with flip or virgin collection due within 1 day or overdue.
+
+        Returns up to 3 days overdue to avoid spamming for long-forgotten crosses.
+
+        Returns:
+            list[CrossReminderInfo]: Crosses needing reminders.
+        """
+        today = date.today()
+        reminders: list[CrossReminderInfo] = []
+
+        crosses = (
+            self.db.query(Cross)
+            .options(
+                joinedload(Cross.parent_female),
+                joinedload(Cross.parent_male),
+            )
+            .filter(
+                Cross.tenant_id == self.tenant_id,
+                Cross.status == CrossStatus.IN_PROGRESS,
+                Cross.executed_date.isnot(None),
+            )
+            .all()
+        )
+
+        for cross in crosses:
+            exec_date = (
+                cross.executed_date.date()
+                if isinstance(cross.executed_date, datetime)
+                else cross.executed_date
+            )
+
+            # Check flip reminder
+            if cross.flip_days is not None:
+                flip_due = exec_date + timedelta(days=cross.flip_days)
+                days_until = (flip_due - today).days
+                # Remind if due within 1 day or overdue up to 3 days
+                if -3 <= days_until <= 1:
+                    reminders.append(
+                        CrossReminderInfo(
+                            cross_id=cross.id,
+                            cross_name=cross.name,
+                            female_stock_id=cross.parent_female.stock_id,
+                            male_stock_id=cross.parent_male.stock_id,
+                            event_type="flip",
+                            due_date=flip_due,
+                            days_until=days_until,
+                        )
+                    )
+
+            # Check virgin collection reminder
+            if cross.virgin_collection_days is not None:
+                vc_due = exec_date + timedelta(days=cross.virgin_collection_days)
+                days_until = (vc_due - today).days
+                if -3 <= days_until <= 1:
+                    reminders.append(
+                        CrossReminderInfo(
+                            cross_id=cross.id,
+                            cross_name=cross.name,
+                            female_stock_id=cross.parent_female.stock_id,
+                            male_stock_id=cross.parent_male.stock_id,
+                            event_type="virgin_collection",
+                            due_date=vc_due,
+                            days_until=days_until,
+                        )
+                    )
+
+        return reminders
 
 
 def get_cross_service(db: Session, tenant_id: str) -> CrossService:

@@ -76,6 +76,7 @@
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Female Parent</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Male Parent</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timeline</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                         <th scope="col" class="relative px-6 py-3"><span class="sr-only">Actions</span></th>
                     </tr>
@@ -97,6 +98,33 @@
                                           'bg-red-100 text-red-800': cross.status === 'failed'
                                       }"
                                       x-text="cross.status.replace('_', ' ')"></span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <template x-if="cross.status === 'in_progress' && cross.days_until_flip !== null">
+                                    <div class="flex items-center gap-2">
+                                        <!-- Flip indicator -->
+                                        <span class="relative flex h-2.5 w-2.5" :title="'Flip: ' + (cross.flip_overdue ? Math.abs(cross.days_until_flip) + 'd overdue' : cross.days_until_flip + 'd')">
+                                            <span class="inline-flex rounded-full h-2.5 w-2.5"
+                                                  :class="{
+                                                      'bg-red-500': cross.flip_overdue,
+                                                      'bg-amber-400': !cross.flip_overdue && cross.days_until_flip <= 1,
+                                                      'bg-green-400': cross.days_until_flip > 1
+                                                  }"></span>
+                                        </span>
+                                        <!-- Virgin collection indicator -->
+                                        <span class="relative flex h-2.5 w-2.5" :title="'Virgins: ' + (cross.virgin_collection_overdue ? Math.abs(cross.days_until_virgin_collection) + 'd overdue' : cross.days_until_virgin_collection + 'd')">
+                                            <span class="inline-flex rounded-full h-2.5 w-2.5"
+                                                  :class="{
+                                                      'bg-red-500': cross.virgin_collection_overdue,
+                                                      'bg-amber-400': !cross.virgin_collection_overdue && cross.days_until_virgin_collection <= 1,
+                                                      'bg-green-400': cross.days_until_virgin_collection > 1
+                                                  }"></span>
+                                        </span>
+                                    </div>
+                                </template>
+                                <template x-if="cross.status !== 'in_progress' || cross.days_until_flip === null">
+                                    <span class="text-xs text-gray-400">-</span>
+                                </template>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="cross.planned_date || cross.executed_date || '-'"></td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
