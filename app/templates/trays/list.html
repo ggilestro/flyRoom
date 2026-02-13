@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div x-data="traysList()" x-init="loadTrays()">
+<div x-data="traysList()" x-init="loadTrays()" @click="openMenuId = null">
     <div class="mb-6 flex items-center justify-between">
         <div>
             <h1 class="text-2xl font-semibold text-gray-900">Trays</h1>
@@ -51,16 +51,52 @@
             <template x-for="tray in trays" :key="tray.id">
                 <a :href="'/stocks?tray=' + tray.id" class="bg-white shadow rounded-lg p-6 hover:shadow-md transition-shadow">
                     <div class="flex items-start justify-between">
-                        <div>
+                        <div class="min-w-0 flex-1">
                             <h3 class="text-lg font-medium text-gray-900" x-text="tray.name"></h3>
-                            <p class="mt-1 text-sm text-gray-500" x-text="tray.description || 'No description'"></p>
+                            <p class="mt-1 text-sm text-gray-500 truncate" x-text="tray.description || 'No description'"></p>
                         </div>
-                        <span class="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200 transition-colors">
-                            Open
-                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                            </svg>
-                        </span>
+                        <!-- Three-dots menu -->
+                        <div class="relative ml-2 flex-shrink-0">
+                            <button @click.prevent.stop="openMenuId = openMenuId === tray.id ? null : tray.id"
+                                    class="rounded-full p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                </svg>
+                            </button>
+                            <div x-show="openMenuId === tray.id" x-cloak
+                                 x-transition:enter="transition ease-out duration-100"
+                                 x-transition:enter-start="transform opacity-0 scale-95"
+                                 x-transition:enter-end="transform opacity-100 scale-100"
+                                 x-transition:leave="transition ease-in duration-75"
+                                 x-transition:leave-start="transform opacity-100 scale-100"
+                                 x-transition:leave-end="transform opacity-0 scale-95"
+                                 class="absolute right-0 z-10 mt-1 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                                <div class="py-1">
+                                    <button @click.prevent.stop="openEditModal(tray)"
+                                            class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                        Edit Tray
+                                    </button>
+                                    <button @click.prevent.stop="printTrayLabel(tray.id)"
+                                            class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                        </svg>
+                                        Print Tray Label
+                                    </button>
+                                    <div class="border-t border-gray-100 my-1"></div>
+                                    <button @click.prevent.stop="confirmDelete(tray)"
+                                            class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                        <svg class="h-4 w-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                        Delete Tray
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="mt-4 flex items-center justify-between text-sm text-gray-500">
                         <div class="flex items-center">
@@ -207,6 +243,71 @@
             </div>
         </div>
     </div>
+
+    <!-- Edit Tray Modal -->
+    <div x-show="showEditModal" class="fixed inset-0 z-50 overflow-y-auto" x-cloak>
+        <div class="flex min-h-screen items-center justify-center p-4">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showEditModal = false"></div>
+            <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Tray</h3>
+                <form @submit.prevent="updateTray()">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Name</label>
+                            <input type="text" x-model="editForm.name" required
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Description</label>
+                            <textarea x-model="editForm.description" rows="2"
+                                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Position Format</label>
+                            <select x-model="editForm.tray_type"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                                <option value="numeric">Numeric (1, 2, 3...)</option>
+                                <option value="grid">Grid coordinates (A1, A2, B1...)</option>
+                                <option value="custom">Custom labels</option>
+                            </select>
+                        </div>
+                        <template x-if="editForm.tray_type === 'numeric' || editForm.tray_type === 'custom'">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Max Positions</label>
+                                <input type="number" x-model="editForm.max_positions" min="1" max="1000"
+                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                            </div>
+                        </template>
+                        <template x-if="editForm.tray_type === 'grid'">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Rows</label>
+                                    <input type="number" x-model="editForm.rows" min="1" max="26"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Columns</label>
+                                    <input type="number" x-model="editForm.cols" min="1" max="99"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border">
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="mt-6 flex justify-end gap-3">
+                        <button type="button" @click="showEditModal = false"
+                                class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button type="submit" :disabled="saving"
+                                class="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500 disabled:opacity-50">
+                            <span x-show="!saving">Save</span>
+                            <span x-show="saving">Saving...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -215,11 +316,16 @@ function traysList() {
         loading: true,
         trays: [],
         showCreateModal: false,
+        showEditModal: false,
         creating: false,
+        saving: false,
         hasOnlineAgent: false,
         labelSettings: null,
         printingTrayId: null,
         printSuccessTrayId: null,
+        openMenuId: null,
+        editingTrayId: null,
+        editForm: { name: '', description: '', tray_type: 'numeric', max_positions: 100, rows: 8, cols: 12 },
         newTray: {
             name: '',
             description: '',
@@ -251,6 +357,95 @@ function traysList() {
                 console.error('Error loading trays:', error);
             } finally {
                 this.loading = false;
+            }
+        },
+        openEditModal(tray) {
+            this.openMenuId = null;
+            this.editingTrayId = tray.id;
+            this.editForm = {
+                name: tray.name,
+                description: tray.description || '',
+                tray_type: tray.tray_type,
+                max_positions: tray.max_positions || 100,
+                rows: tray.rows || 8,
+                cols: tray.cols || 12,
+            };
+            this.showEditModal = true;
+        },
+        async updateTray() {
+            this.saving = true;
+            try {
+                const body = {
+                    name: this.editForm.name,
+                    description: this.editForm.description || null,
+                    tray_type: this.editForm.tray_type,
+                };
+                if (this.editForm.tray_type === 'grid') {
+                    body.rows = parseInt(this.editForm.rows);
+                    body.cols = parseInt(this.editForm.cols);
+                } else {
+                    body.max_positions = parseInt(this.editForm.max_positions);
+                }
+
+                const response = await fetch(`/api/trays/${this.editingTrayId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(body)
+                });
+                if (response.ok) {
+                    this.showEditModal = false;
+                    await this.loadTrays();
+                } else {
+                    const error = await response.json();
+                    alert(error.detail || 'Failed to update tray');
+                }
+            } catch (error) {
+                console.error('Error updating tray:', error);
+                alert('Failed to update tray');
+            } finally {
+                this.saving = false;
+            }
+        },
+        async confirmDelete(tray) {
+            this.openMenuId = null;
+            if (!confirm(`Delete "${tray.name}"? Stocks in this tray will have their position cleared.`)) {
+                return;
+            }
+            try {
+                const response = await fetch(`/api/trays/${tray.id}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    await this.loadTrays();
+                } else {
+                    const error = await response.json();
+                    alert(error.detail || 'Failed to delete tray');
+                }
+            } catch (error) {
+                console.error('Error deleting tray:', error);
+            }
+        },
+        async printTrayLabel(trayId) {
+            this.openMenuId = null;
+            try {
+                if (this.hasOnlineAgent) {
+                    const resp = await fetch('/api/labels/print-tray', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ tray_id: trayId })
+                    });
+                    if (!resp.ok) {
+                        const error = await resp.json();
+                        alert(error.detail || 'Failed to print tray label');
+                    }
+                } else {
+                    window.open(`/api/labels/tray/${trayId}/pdf`, '_blank');
+                }
+            } catch (error) {
+                console.error('Error printing tray label:', error);
             }
         },
         async flipAndPrint(trayId, stockCount) {

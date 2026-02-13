@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.models import PrintAgent, PrintJob, PrintJobStatus, Stock, Tenant
+from app.db.models import PrintAgent, PrintJob, PrintJobStatus, Stock, Tenant, Tray
 from app.labels.schemas import (
     LabelData,
     PrintAgentCreate,
@@ -454,6 +454,36 @@ class PrintService:
         self.db.refresh(job)
         return job
 
+    def create_tray_job(
+        self,
+        tray_id: str,
+        label_format: str = "dymo_11352",
+        code_type: str = "qr",
+    ) -> PrintJob:
+        """Create a print job for a tray label.
+
+        Args:
+            tray_id: Tray UUID.
+            label_format: Label format key.
+            code_type: Code type ("qr" or "barcode").
+
+        Returns:
+            PrintJob: Created tray label job.
+        """
+        job = PrintJob(
+            tenant_id=self.tenant_id,
+            created_by_id=self.user_id,
+            stock_ids=[f"__TRAY__:{tray_id}"],  # Sentinel for tray labels
+            label_format=label_format,
+            copies=1,
+            code_type=code_type,
+            status=PrintJobStatus.PENDING,
+        )
+        self.db.add(job)
+        self.db.commit()
+        self.db.refresh(job)
+        return job
+
     def get_job(self, job_id: str) -> PrintJob | None:
         """Get a print job by ID.
 
@@ -644,6 +674,25 @@ class PrintService:
                         print_date=date.today().isoformat(),
                     )
                 ],
+            )
+
+        # Handle tray label jobs
+        if len(job.stock_ids) == 1 and job.stock_ids[0].startswith("__TRAY__:"):
+            tray_id = job.stock_ids[0].split(":", 1)[1]
+            tray = self.db.query(Tray).filter(Tray.id == tray_id).first()
+            if not tray:
+                return None
+
+            from app.labels.service import LabelService
+
+            label_svc = LabelService(self.db, self.tenant_id)
+            tray_data = label_svc.generate_tray_label_data(tray)
+            return PrintJobLabels(
+                job_id=job.id,
+                label_format=job.label_format,
+                copies=job.copies,
+                code_type=job.code_type,
+                labels=[LabelData(**tray_data)],
             )
 
         # Fetch stocks

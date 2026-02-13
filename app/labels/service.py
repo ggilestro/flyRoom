@@ -6,7 +6,7 @@ from typing import Literal
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.models import Stock
+from app.db.models import Stock, Tray
 from app.labels.generators import (
     generate_barcode,
     generate_label_content,
@@ -50,6 +50,83 @@ class LabelService:
             .options(joinedload(Stock.tray))
             .filter(Stock.id == stock_id, Stock.tenant_id == self.tenant_id)
             .first()
+        )
+
+    def get_tray(self, tray_id: str) -> Tray | None:
+        """Get a tray by ID.
+
+        Args:
+            tray_id: Tray UUID.
+
+        Returns:
+            Tray | None: Tray if found.
+        """
+        return (
+            self.db.query(Tray).filter(Tray.id == tray_id, Tray.tenant_id == self.tenant_id).first()
+        )
+
+    def generate_tray_label_data(self, tray: Tray) -> dict:
+        """Build label data dict from a tray for PDF generation.
+
+        Maps tray fields to label display positions:
+        - stock_id position -> tray name (large, prominent)
+        - genotype position -> description (medium, wrapped)
+        - source_info position -> tray type info (small)
+        - qr_content -> flypush://tray/{tray_name}
+
+        Args:
+            tray: Tray model instance.
+
+        Returns:
+            dict: Label data compatible with create_label_png/pdf.
+        """
+        # Build tray type info string
+        if tray.tray_type.value == "grid" and tray.rows and tray.cols:
+            type_info = f"Grid {tray.rows}x{tray.cols}"
+        elif tray.max_positions:
+            type_info = f"{tray.max_positions} positions"
+        else:
+            type_info = tray.tray_type.value.capitalize()
+
+        return {
+            "stock_id": tray.name,
+            "genotype": tray.description or "",
+            "source_info": type_info,
+            "location_info": None,
+            "print_date": date.today().isoformat(),
+            "qr_content": f"flypush://tray/{tray.name}",
+        }
+
+    def generate_tray_pdf(
+        self,
+        tray_id: str,
+        label_format: str = "dymo_11352",
+        code_type: Literal["qr", "barcode"] = "qr",
+    ) -> bytes | None:
+        """Generate a PDF label for a tray.
+
+        Args:
+            tray_id: Tray UUID.
+            label_format: Label format name.
+            code_type: Type of code to render ("qr" or "barcode").
+
+        Returns:
+            bytes | None: PDF file data if tray found.
+        """
+        tray = self.get_tray(tray_id)
+        if not tray:
+            return None
+
+        label_data = self.generate_tray_label_data(tray)
+        return create_label_pdf(
+            stock_id=label_data["stock_id"],
+            genotype=label_data["genotype"],
+            label_format=label_format,
+            source_info=label_data["source_info"],
+            location_info=label_data["location_info"],
+            code_type=code_type,
+            print_date=label_data["print_date"],
+            qr_content=label_data["qr_content"],
         )
 
     def generate_qr(self, stock_id: str, size: int = 200) -> bytes | None:

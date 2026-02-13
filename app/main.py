@@ -804,39 +804,6 @@ async def trays_page(
     )
 
 
-@app.get("/trays/{tray_id}", response_class=HTMLResponse)
-async def tray_detail_page(
-    tray_id: str,
-    request: Request,
-    db: Session = Depends(get_db),
-    access_token: str | None = Cookie(None),
-):
-    """Render the tray detail page.
-
-    Args:
-        tray_id: Tray ID from URL.
-        request: FastAPI request object.
-        db: Database session.
-        access_token: JWT access token from cookie.
-
-    Returns:
-        HTMLResponse or RedirectResponse.
-    """
-    current_user = get_current_user_from_cookie(db, access_token)
-    if not current_user:
-        return RedirectResponse(url="/login", status_code=302)
-
-    return templates.TemplateResponse(
-        "trays/detail.html",
-        {
-            "request": request,
-            "title": "Tray Details",
-            "current_user": current_user,
-            "tray_id": tray_id,
-        },
-    )
-
-
 @app.get("/tags", response_class=HTMLResponse)
 async def tags_page(
     request: Request,

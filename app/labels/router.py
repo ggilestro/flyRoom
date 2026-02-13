@@ -25,6 +25,7 @@ from app.labels.schemas import (
     PrintJobCreate,
     PrintJobLabels,
     PrintJobResponse,
+    PrintTrayLabelRequest,
 )
 from app.labels.service import LabelService, get_label_service
 
@@ -401,6 +402,95 @@ async def print_test_label(
     # Create a special test job
     job = svc.create_test_job(label_format=format)
     return {"message": "Test label job created", "job_id": str(job.id)}
+
+
+# ============================================================================
+# Tray Label Endpoints
+# ============================================================================
+
+
+@router.get("/tray/{tray_id}/pdf")
+async def get_tray_pdf(
+    tray_id: str,
+    service: Annotated[LabelService, Depends(get_service)],
+    format: str = Query("dymo_11352", description="Label format"),
+    code_type: str = Query("qr", description="Code type: 'qr' or 'barcode'"),
+):
+    """Get PDF label for a tray.
+
+    Args:
+        tray_id: Tray UUID.
+        service: Label service.
+        format: Label format name.
+        code_type: Type of code to render.
+
+    Returns:
+        Response: PDF file.
+
+    Raises:
+        HTTPException: If tray not found.
+    """
+    if code_type not in ("qr", "barcode"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="code_type must be 'qr' or 'barcode'",
+        )
+
+    try:
+        pdf_data = service.generate_tray_pdf(tray_id, label_format=format, code_type=code_type)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    if not pdf_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tray not found",
+        )
+
+    return Response(
+        content=pdf_data,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"inline; filename=tray_label_{tray_id}.pdf",
+        },
+    )
+
+
+@router.post("/print-tray", response_model=PrintJobResponse)
+async def print_tray_label(
+    data: PrintTrayLabelRequest,
+    svc: Annotated[PrintService, Depends(get_print_svc)],
+    service: Annotated[LabelService, Depends(get_service)],
+):
+    """Create a print job for a tray label.
+
+    Args:
+        data: Tray label print request.
+        svc: Print service.
+        service: Label service (to verify tray exists).
+
+    Returns:
+        PrintJobResponse: Created job.
+
+    Raises:
+        HTTPException: If tray not found.
+    """
+    tray = service.get_tray(data.tray_id)
+    if not tray:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tray not found",
+        )
+
+    job = svc.create_tray_job(
+        tray_id=data.tray_id,
+        label_format=data.label_format,
+        code_type=data.code_type,
+    )
+    return PrintJobResponse.model_validate(job)
 
 
 # ============================================================================
@@ -1099,6 +1189,28 @@ async def get_job_pdf(
         from app.labels.pdf_generator import create_test_label_pdf
 
         pdf_data = create_test_label_pdf(label_format=job.label_format)
+    elif len(job.stock_ids) == 1 and job.stock_ids[0].startswith("__TRAY__:"):
+        # Tray label job — generate PDF from tray label data
+        from app.labels.pdf_generator import create_batch_label_pdf
+
+        label_data = [
+            {
+                "stock_id": label.stock_id,
+                "genotype": label.genotype,
+                "source_info": label.source_info,
+                "location_info": label.location_info,
+                "print_date": label.print_date,
+                "qr_content": label.qr_content,
+            }
+            for label in labels.labels
+        ]
+
+        pdf_data = create_batch_label_pdf(
+            label_data,
+            label_format=labels.label_format,
+            code_type=labels.code_type,
+            for_print=True,
+        )
     else:
         # Generate PDF using label service
         from app.labels.pdf_generator import create_batch_label_pdf
@@ -1172,6 +1284,28 @@ async def get_job_image(
         from app.labels.pdf_generator import create_test_label_png
 
         png_data = create_test_label_png(label_format=job.label_format)
+    elif len(job.stock_ids) == 1 and job.stock_ids[0].startswith("__TRAY__:"):
+        # Tray label job
+        from app.labels.pdf_generator import create_label_png
+
+        if labels.labels:
+            label = labels.labels[0]
+            png_data = create_label_png(
+                stock_id=label.stock_id,
+                genotype=label.genotype,
+                label_format=labels.label_format,
+                source_info=label.source_info,
+                location_info=label.location_info,
+                code_type=labels.code_type,
+                print_date=label.print_date,
+                for_print=True,
+                qr_content=label.qr_content,
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No labels in job",
+            )
     else:
         # Generate PNG using label service
         from app.labels.pdf_generator import create_label_png

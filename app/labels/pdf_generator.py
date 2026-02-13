@@ -98,6 +98,7 @@ def create_label_png(
     code_type: Literal["qr", "barcode"] = "qr",
     print_date: str | None = None,
     for_print: bool = False,
+    qr_content: str | None = None,
 ) -> bytes:
     """Generate a PNG label image.
 
@@ -209,7 +210,7 @@ def create_label_png(
         qr_size = int(20 * px_per_mm)
 
         # Generate QR code
-        qr_data = f"flypush://{stock_id}"
+        qr_data = qr_content or f"flypush://{stock_id}"
         qr_img = qrcode.make(qr_data, box_size=max(1, qr_size // 21), border=1)
         qr_img = qr_img.resize((qr_size, qr_size), Image.Resampling.NEAREST)
 
@@ -576,6 +577,7 @@ def create_label_pdf(
     location_info: str | None = None,
     code_type: Literal["qr", "barcode"] = "qr",
     print_date: str | None = None,
+    qr_content: str | None = None,
 ) -> bytes:
     """Generate a PDF label for a single stock.
 
@@ -610,6 +612,7 @@ def create_label_pdf(
         code_type=code_type,
         print_date=print_date,
         for_print=False,  # High-quality for preview
+        qr_content=qr_content,
     )
 
     # Get page dimensions for PDF
@@ -726,6 +729,7 @@ def create_batch_label_pdf(
             code_type=code_type,
             print_date=label_data.get("print_date"),
             for_print=False,  # Always 300 DPI PNG source
+            qr_content=label_data.get("qr_content"),
         )
 
         # Load PNG

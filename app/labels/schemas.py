@@ -148,6 +148,14 @@ class PrintJobCreate(BaseModel):
     record_flip: bool = Field(False, description="Record a flip event for each stock")
 
 
+class PrintTrayLabelRequest(BaseModel):
+    """Schema for printing a tray label."""
+
+    tray_id: str
+    label_format: str = "dymo_11352"
+    code_type: str = "qr"
+
+
 class PrintJobResponse(BaseModel):
     """Schema for print job response."""
 
@@ -201,6 +209,7 @@ class LabelData(BaseModel):
     source_info: str | None = None
     location_info: str | None = None
     print_date: str | None = None
+    qr_content: str | None = None  # Override QR code content (e.g. for tray labels)
 
 
 class PrintJobLabels(BaseModel):
