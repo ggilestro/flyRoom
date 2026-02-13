@@ -56,25 +56,26 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock ID</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Genotype</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lab</th>
-                        <th scope="col" class="relative px-6 py-3"><span class="sr-only">Actions</span></th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock ID</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Genotype</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lab</th>
+                        <th scope="col" class="relative px-4 py-3"><span class="sr-only">Actions</span></th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     <template x-for="stock in stocks" :key="stock.id">
                         <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-4 py-4 whitespace-nowrap">
                                 <span class="text-sm font-medium text-gray-900" x-text="stock.stock_id"></span>
                             </td>
-                            <td class="px-6 py-4">
-                                <div class="text-sm text-gray-900 max-w-md truncate" x-text="stock.genotype"></div>
+                            <td class="px-4 py-4">
+                                <div class="text-sm text-gray-900 max-w-sm truncate" x-text="stock.genotype"></div>
+                                <div x-show="stock.shortname" class="text-xs text-gray-500 mt-0.5" x-text="stock.shortname"></div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="stock.external_source || stock.repository || '-'"></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="stock.tenant?.name || 'Unknown'"></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500" x-text="stock.external_source || stock.repository || '-'"></td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500" x-text="stock.tenant?.name || 'Unknown'"></td>
+                            <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <button @click="openRequestModal(stock)"
                                         class="text-primary-600 hover:text-primary-900"
                                         :disabled="stock.is_own"
