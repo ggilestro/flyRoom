@@ -105,6 +105,10 @@ function stockTypeahead(role, excludeId) {
         selectedStock: null,
 
         async search() {
+            // Strip flypush:// prefix from QR code scans
+            if (this.query.startsWith('flypush://')) {
+                this.query = this.query.replace('flypush://', '');
+            }
             if (this.query.length < 2) {
                 this.results = [];
                 this.showDropdown = false;
@@ -114,7 +118,7 @@ function stockTypeahead(role, excludeId) {
             this.searching = true;
             try {
                 const params = new URLSearchParams({
-                    q: this.query,
+                    query: this.query,
                     page_size: '10',
                 });
                 const response = await fetch('/api/stocks?' + params.toString(), {
