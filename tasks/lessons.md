@@ -1,5 +1,17 @@
 # Lessons Learned
 
+## 2026-02-11: SQLite DateTime Comparison Gotcha
+
+### SQLAlchemy + SQLite Datetime Serialization Mismatch
+- **Issue**: SQLAlchemy sends datetime bound parameters with microseconds (`'2026-02-11 11:43:44.000000'`) but SQLite `CURRENT_TIMESTAMP` stores without them (`'2026-02-11 11:43:44'`). Since SQLite uses string comparison, `'2026-02-11 11:43:44' < '2026-02-11 11:43:44.000000'` evaluates to True (`.` > ` ` in ASCII).
+- **Impact**: Queries like `Stock.modified_at < current_stock.modified_at` can match the same row, and `Stock.modified_at == current_stock.modified_at` can miss it.
+- **Fix**: When querying for rows adjacent to a current row, always explicitly exclude the current row with `Stock.id != current_id`.
+- **Note**: This is SQLite-specific; MariaDB/MySQL/PostgreSQL use actual datetime types, not string comparison.
+
+### Service Method Refactoring for Reuse
+- **Pattern**: Extract filter/sort logic from `list_stocks()` into `_build_filtered_query()` and `_get_sort_column()` helper methods
+- **Benefit**: Enables consistent filter/sort behavior across `list_stocks()` and `get_adjacent_stocks()` without code duplication
+
 ## 2026-02-02: BDSC Plugin Implementation
 
 ### Circular Import Prevention

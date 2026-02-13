@@ -1,6 +1,44 @@
-# Cross Planning Feature Enhancement
+# Tray Label Printing & Tray Management UX
 
 ## Current Task
+Add tray label printing and improve tray list page UX with kebab menu actions.
+
+**Date Started:** 2026-02-13
+**Date Completed:** 2026-02-13
+**Status:** Complete
+
+### Implementation Summary
+
+#### Label Infrastructure (qr_content override)
+- `pdf_generator.py`: Added `qr_content` param to `create_label_png()`, `create_label_pdf()`, `create_batch_label_pdf()`
+- `schemas.py`: Added `qr_content` to `LabelData`, new `PrintTrayLabelRequest` schema
+- `service.py`: Added `get_tray()`, `generate_tray_label_data()`, `generate_tray_pdf()` methods
+- `print_service.py`: Added `create_tray_job()`, `__TRAY__:` sentinel handling in `get_job_labels()`
+
+#### Endpoints
+- `GET /api/labels/tray/{tray_id}/pdf` — browser fallback PDF download
+- `POST /api/labels/print-tray` — create print job for agent
+- Updated `get_job_pdf()` and `get_job_image()` for `__TRAY__` sentinel
+
+#### Tray List Page UX (`trays/list.html`)
+- Replaced "Open >" button with three-dots kebab dropdown menu
+- Menu contains: Edit Tray (modal), Print Tray Label, Delete Tray (with confirmation)
+- Edit modal supports all tray fields (name, description, type, positions/grid config)
+- Added print icon in stock list tray filter chip (`stocks/list.html`)
+
+#### Cleanup
+- Removed orphaned `/trays/{tray_id}` route from `main.py`
+- Deleted unused `trays/detail.html`
+
+#### Tests
+- `tests/test_labels/test_tray_labels.py`: 9 tests (label data, QR override, tray sentinel)
+- All 399 tests pass
+
+---
+
+# Cross Planning Feature Enhancement
+
+## Previous Task
 Enhance the cross-planning UI with interactive stock search, AI-powered genotype prediction, and timeline reminders for vial flips and virgin collection.
 
 **Date Started:** 2026-02-12
