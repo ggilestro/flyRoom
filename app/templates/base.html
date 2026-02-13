@@ -87,6 +87,17 @@
             {% block public_content %}{% endblock %}
         </main>
         {% endif %}
+
+        <!-- Footer -->
+        <footer class="{% if current_user %}lg:pl-56{% endif %}">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 border-t border-gray-200">
+                <p class="text-center text-xs text-gray-400">
+                    {{ app_name }} v{{ app_version }}
+                    &middot; by <a href="mailto:giorgio@gilest.ro" class="hover:text-gray-600">giorgio@gilest.ro</a>
+                    &middot; powered by {{ app_llm_model }}
+                </p>
+            </div>
+        </footer>
     </div>
     {% endblock %}
 

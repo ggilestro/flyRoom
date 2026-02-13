@@ -151,6 +151,8 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 # Templates with global context
 templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["app_name"] = settings.app_name
+templates.env.globals["app_version"] = "0.1.0"
+templates.env.globals["app_llm_model"] = settings.llm_default_model
 
 
 # Import and include routers
