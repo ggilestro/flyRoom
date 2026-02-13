@@ -54,12 +54,12 @@
 </head>
 <body class="h-full bg-gray-50" x-data="{ sidebarOpen: false }">
     {% block body %}
-    <div class="min-h-full">
+    <div class="min-h-screen flex flex-col">
         {% if current_user %}
         <!-- Navigation -->
         {% include "components/navbar.html" %}
 
-        <div class="flex">
+        <div class="flex flex-1">
             <!-- Sidebar -->
             {% include "components/sidebar.html" %}
 
@@ -83,7 +83,7 @@
         </div>
         {% else %}
         <!-- Public layout (login, register) -->
-        <main class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <main class="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
             {% block public_content %}{% endblock %}
         </main>
         {% endif %}
