@@ -1,8 +1,9 @@
 """Cross service layer."""
 
+import logging
 from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.crosses.schemas import (
@@ -15,7 +16,9 @@ from app.crosses.schemas import (
     CrossUpdate,
     StockSummary,
 )
-from app.db.models import Cross, CrossStatus, Stock
+from app.db.models import Cross, CrossOutcomeType, CrossStatus, Stock, StockOrigin
+
+logger = logging.getLogger(__name__)
 
 
 class CrossService:
@@ -47,6 +50,7 @@ class CrossService:
             shortname=stock.shortname,
             original_genotype=stock.original_genotype,
             notes=stock.notes,
+            is_placeholder=stock.is_placeholder,
         )
 
     def _compute_timeline(self, cross: Cross) -> dict:
@@ -111,6 +115,7 @@ class CrossService:
             planned_date=cross.planned_date.date() if cross.planned_date else None,
             executed_date=cross.executed_date.date() if cross.executed_date else None,
             status=cross.status,
+            outcome_type=cross.outcome_type,
             expected_outcomes=cross.expected_outcomes,
             notes=cross.notes,
             target_genotype=cross.target_genotype,
@@ -125,6 +130,59 @@ class CrossService:
             created_at=cross.created_at,
             created_by_name=cross.created_by.full_name if cross.created_by else None,
         )
+
+    def _generate_offspring_stock_id(self) -> str:
+        """Generate sequential CX-NNN stock ID for cross offspring.
+
+        Returns:
+            str: Next available CX-NNN stock ID.
+        """
+        # Find the highest existing CX- number for this tenant
+        max_id = (
+            self.db.query(func.max(Stock.stock_id))
+            .filter(
+                Stock.tenant_id == self.tenant_id,
+                Stock.stock_id.like("CX-%"),
+            )
+            .scalar()
+        )
+
+        if max_id:
+            try:
+                num = int(max_id.split("-")[1]) + 1
+            except (IndexError, ValueError):
+                num = 1
+        else:
+            num = 1
+
+        return f"CX-{num:03d}"
+
+    def _create_offspring_stock(self, cross: Cross, user_id: str) -> Stock:
+        """Create a placeholder offspring stock for a cross.
+
+        Args:
+            cross: Cross with parents loaded.
+            user_id: Creating user's ID.
+
+        Returns:
+            Stock: Created placeholder stock.
+        """
+        stock_id = self._generate_offspring_stock_id()
+        female_sid = cross.parent_female.stock_id if cross.parent_female else "?"
+        male_sid = cross.parent_male.stock_id if cross.parent_male else "?"
+
+        offspring = Stock(
+            tenant_id=self.tenant_id,
+            stock_id=stock_id,
+            genotype=cross.target_genotype or "TBD",
+            origin=StockOrigin.INTERNAL,
+            is_placeholder=True,
+            notes=f"Cross offspring: {female_sid} x {male_sid}",
+            created_by_id=user_id,
+        )
+        self.db.add(offspring)
+        self.db.flush()  # Get the ID without committing
+        return offspring
 
     def list_crosses(self, params: CrossSearchParams) -> CrossListResponse:
         """List crosses with filtering and pagination.
@@ -246,11 +304,22 @@ class CrossService:
             target_genotype=data.target_genotype,
             flip_days=data.flip_days,
             virgin_collection_days=data.virgin_collection_days,
+            outcome_type=data.outcome_type,
             status=CrossStatus.PLANNED,
             created_by_id=user_id,
         )
 
         self.db.add(cross)
+        self.db.flush()
+
+        # Auto-create placeholder offspring for intermediate/new_stock outcomes
+        if data.outcome_type != CrossOutcomeType.EPHEMERAL and data.target_genotype:
+            # Need parents loaded for stock ID generation in notes
+            cross.parent_female = female
+            cross.parent_male = male
+            offspring = self._create_offspring_stock(cross, user_id)
+            cross.offspring_id = offspring.id
+
         self.db.commit()
         self.db.refresh(cross)
         return cross
@@ -294,6 +363,31 @@ class CrossService:
             )
             if offspring:
                 cross.offspring_id = data.offspring_id
+
+        # Handle outcome_type transitions
+        if data.outcome_type is not None:
+            old_outcome = cross.outcome_type or CrossOutcomeType.EPHEMERAL
+            cross.outcome_type = data.outcome_type
+
+            if (
+                data.outcome_type == CrossOutcomeType.EPHEMERAL
+                and old_outcome != CrossOutcomeType.EPHEMERAL
+            ):
+                # Deactivate placeholder offspring when switching to ephemeral
+                if cross.offspring and cross.offspring.is_placeholder:
+                    cross.offspring.is_active = False
+                    cross.offspring_id = None
+            elif data.outcome_type != CrossOutcomeType.EPHEMERAL and not cross.offspring_id:
+                # Auto-create offspring if switching to intermediate/new_stock
+                genotype = data.target_genotype or cross.target_genotype
+                if genotype:
+                    cross.target_genotype = genotype
+                    offspring = self._create_offspring_stock(cross, cross.created_by_id)
+                    cross.offspring_id = offspring.id
+
+        # Update placeholder offspring genotype if target_genotype changed
+        if data.target_genotype is not None and cross.offspring and cross.offspring.is_placeholder:
+            cross.offspring.genotype = data.target_genotype
 
         self.db.commit()
         self.db.refresh(cross)
@@ -348,6 +442,10 @@ class CrossService:
         if data.notes:
             cross.notes = data.notes
 
+        # Confirm placeholder offspring (make it a real stock)
+        if cross.offspring and cross.offspring.is_placeholder:
+            cross.offspring.is_placeholder = False
+
         self.db.commit()
         self.db.refresh(cross)
         return cross
@@ -369,6 +467,10 @@ class CrossService:
         cross.status = CrossStatus.FAILED
         if notes:
             cross.notes = notes
+
+        # Deactivate placeholder offspring
+        if cross.offspring and cross.offspring.is_placeholder:
+            cross.offspring.is_active = False
 
         self.db.commit()
         self.db.refresh(cross)

@@ -46,14 +46,23 @@
                 <div class="flex items-center justify-between mb-6">
                     <div>
                         <h1 class="text-2xl font-semibold text-gray-900" x-text="cross.name || 'Cross Details'"></h1>
-                        <span class="inline-flex rounded-full px-3 py-1 text-sm font-semibold mt-2"
-                              :class="{
-                                  'bg-gray-100 text-gray-800': cross.status === 'planned',
-                                  'bg-blue-100 text-blue-800': cross.status === 'in_progress',
-                                  'bg-green-100 text-green-800': cross.status === 'completed',
-                                  'bg-red-100 text-red-800': cross.status === 'failed'
-                              }"
-                              x-text="cross.status.replace('_', ' ')"></span>
+                        <div class="flex items-center gap-2 mt-2">
+                            <span class="inline-flex rounded-full px-3 py-1 text-sm font-semibold"
+                                  :class="{
+                                      'bg-gray-100 text-gray-800': cross.status === 'planned',
+                                      'bg-blue-100 text-blue-800': cross.status === 'in_progress',
+                                      'bg-green-100 text-green-800': cross.status === 'completed',
+                                      'bg-red-100 text-red-800': cross.status === 'failed'
+                                  }"
+                                  x-text="cross.status.replace('_', ' ')"></span>
+                            <span x-show="cross.outcome_type && cross.outcome_type !== 'ephemeral'"
+                                  class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold"
+                                  :class="{
+                                      'bg-amber-100 text-amber-800': cross.outcome_type === 'intermediate',
+                                      'bg-green-100 text-green-800': cross.outcome_type === 'new_stock'
+                                  }"
+                                  x-text="cross.outcome_type === 'new_stock' ? 'New Stock' : 'Intermediate'"></span>
+                        </div>
                     </div>
                     <div class="flex space-x-3">
                         <template x-if="cross.status === 'planned'">
@@ -113,8 +122,10 @@
                     </div>
                     <div class="sm:col-span-2" x-show="cross.offspring">
                         <dt class="text-sm font-medium text-gray-500">Offspring Stock</dt>
-                        <dd class="mt-1">
-                            <a :href="'/stocks/' + cross.offspring.id" class="text-primary-600 hover:text-primary-500" x-text="cross.offspring.stock_id"></a>
+                        <dd class="mt-1 flex items-center gap-2">
+                            <a :href="'/stocks/' + cross.offspring?.id" class="text-primary-600 hover:text-primary-500" x-text="cross.offspring?.stock_id"></a>
+                            <span x-show="cross.offspring?.is_placeholder"
+                                  class="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">Pending</span>
                         </dd>
                     </div>
                     <div class="sm:col-span-2">

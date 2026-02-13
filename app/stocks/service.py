@@ -158,6 +158,7 @@ class StockService:
             owner=owner_info,
             visibility=stock.visibility,
             hide_from_org=stock.hide_from_org,
+            is_placeholder=stock.is_placeholder,
             tenant=tenant_info,
             flip_status=flip_status,
             days_since_flip=days_since_flip,

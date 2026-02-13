@@ -55,7 +55,10 @@
                         :class="highlighted === idx ? 'bg-primary-50' : 'hover:bg-gray-50'"
                         class="w-full text-left px-3 py-2 border-b border-gray-100 last:border-0">
                     <div class="flex items-center justify-between">
-                        <span class="font-medium text-sm text-gray-900" x-text="stock.stock_id"></span>
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-medium text-sm text-gray-900" x-text="stock.stock_id"></span>
+                            <span x-show="stock.is_placeholder" class="inline-flex rounded-full bg-yellow-100 px-1.5 py-0.5 text-[10px] font-medium text-yellow-800">Pending</span>
+                        </div>
                         <span x-show="stock.shortname" class="text-xs text-gray-500 ml-2" x-text="stock.shortname"></span>
                     </div>
                     <div class="text-xs text-gray-500 truncate mt-0.5" x-text="stock.genotype"></div>

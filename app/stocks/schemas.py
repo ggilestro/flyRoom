@@ -112,6 +112,7 @@ class StockResponse(StockBase):
 
     id: str
     is_active: bool
+    is_placeholder: bool = False
     created_at: datetime
     modified_at: datetime
     created_by_name: str | None = None

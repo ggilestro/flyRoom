@@ -76,6 +76,7 @@
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Female Parent</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Male Parent</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Outcome</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timeline</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                         <th scope="col" class="relative px-6 py-3"><span class="sr-only">Actions</span></th>
@@ -98,6 +99,16 @@
                                           'bg-red-100 text-red-800': cross.status === 'failed'
                                       }"
                                       x-text="cross.status.replace('_', ' ')"></span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span x-show="cross.outcome_type && cross.outcome_type !== 'ephemeral'"
+                                      class="inline-flex rounded-full px-2 text-xs font-semibold leading-5"
+                                      :class="{
+                                          'bg-amber-100 text-amber-800': cross.outcome_type === 'intermediate',
+                                          'bg-green-100 text-green-800': cross.outcome_type === 'new_stock'
+                                      }"
+                                      x-text="cross.outcome_type === 'new_stock' ? 'New Stock' : 'Intermediate'"></span>
+                                <span x-show="!cross.outcome_type || cross.outcome_type === 'ephemeral'" class="text-xs text-gray-400">-</span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <template x-if="cross.status === 'in_progress' && cross.days_until_flip !== null">

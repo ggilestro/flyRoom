@@ -2,9 +2,9 @@
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.db.models import CrossStatus
+from app.db.models import CrossOutcomeType, CrossStatus
 
 
 class CrossBase(BaseModel):
@@ -23,6 +23,14 @@ class CrossCreate(CrossBase):
     target_genotype: str | None = None
     flip_days: int = Field(5, ge=1, le=30)
     virgin_collection_days: int = Field(12, ge=1, le=60)
+    outcome_type: CrossOutcomeType = CrossOutcomeType.EPHEMERAL
+
+    @model_validator(mode="after")
+    def validate_outcome_requires_genotype(self) -> "CrossCreate":
+        """Require target_genotype when outcome is intermediate or new_stock."""
+        if self.outcome_type != CrossOutcomeType.EPHEMERAL and not self.target_genotype:
+            raise ValueError("target_genotype is required for intermediate or new_stock outcomes")
+        return self
 
 
 class CrossUpdate(BaseModel):
@@ -37,6 +45,7 @@ class CrossUpdate(BaseModel):
     target_genotype: str | None = None
     flip_days: int | None = Field(None, ge=1, le=30)
     virgin_collection_days: int | None = Field(None, ge=1, le=60)
+    outcome_type: CrossOutcomeType | None = None
 
 
 class StockSummary(BaseModel):
@@ -48,6 +57,7 @@ class StockSummary(BaseModel):
     shortname: str | None = None
     original_genotype: str | None = None
     notes: str | None = None
+    is_placeholder: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -63,6 +73,7 @@ class CrossResponse(BaseModel):
     planned_date: date | None
     executed_date: date | None
     status: CrossStatus
+    outcome_type: CrossOutcomeType | None = CrossOutcomeType.EPHEMERAL
     expected_outcomes: dict | None = None
     notes: str | None
     target_genotype: str | None = None

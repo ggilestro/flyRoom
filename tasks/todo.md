@@ -1,3 +1,53 @@
+# Cross Outcome Type Feature
+
+## Current Task
+Add outcome_type (ephemeral/intermediate/new_stock) to crosses with auto-created placeholder offspring stocks.
+
+**Date Started:** 2026-02-13
+**Date Completed:** 2026-02-13
+**Status:** Complete
+
+### Implementation Summary
+
+#### Migration 013
+- [x] `outcome_type` enum column on `crosses` (ephemeral, intermediate, new_stock)
+- [x] `is_placeholder` boolean on `stocks` (default False)
+
+#### Model & Schema Changes
+- [x] `CrossOutcomeType` enum in `app/db/models.py`
+- [x] `outcome_type` field on Cross model, `is_placeholder` on Stock model
+- [x] `CrossCreate`: `outcome_type` field + `model_validator` requiring genotype for non-ephemeral
+- [x] `CrossUpdate`: optional `outcome_type`
+- [x] `CrossResponse`, `StockSummary`, `StockResponse`: include new fields
+
+#### Service Logic
+- [x] `_generate_offspring_stock_id()`: Sequential CX-NNN per tenant
+- [x] `_create_offspring_stock()`: Placeholder stock with origin=INTERNAL, pedigree notes
+- [x] `create_cross`: Auto-create offspring for intermediate/new_stock
+- [x] `update_cross`: Handle outcome_type transitions (create/deactivate offspring)
+- [x] `complete_cross`: Confirm placeholder (is_placeholder=False)
+- [x] `fail_cross`: Deactivate placeholder (is_active=False)
+
+#### Templates
+- [x] Wizard step 3: Outcome type radio cards + conditional genotype requirement
+- [x] Cross list: Outcome badge column (amber/green pills)
+- [x] Cross detail: Outcome badge + "Pending" indicator on offspring
+- [x] Stock list & typeahead: "Pending" badge on placeholder stocks
+
+#### Tests (10 passed)
+- [x] Ephemeral: no offspring created
+- [x] Intermediate: auto-creates CX-001 placeholder
+- [x] New stock: auto-creates placeholder
+- [x] Intermediate without genotype: 422 validation error
+- [x] Offspring in search
+- [x] Complete → is_placeholder=False
+- [x] Fail → is_active=False
+- [x] Ephemeral→intermediate: offspring created
+- [x] Intermediate→ephemeral: offspring deactivated
+- [x] Sequential CX-001/002/003
+
+---
+
 # Tray Label Printing & Tray Management UX
 
 ## Current Task

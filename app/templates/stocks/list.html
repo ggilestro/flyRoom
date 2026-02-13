@@ -209,6 +209,7 @@
                             <td class="px-4 py-4 whitespace-nowrap">
                                 <div class="flex items-center gap-2">
                                     <a :href="getStockDetailUrl(stock.id)" class="text-primary-600 hover:text-primary-900 font-medium" x-text="stock.stock_id"></a>
+                                    <span x-show="stock.is_placeholder" class="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">Pending</span>
                                     <span x-show="!stock.is_active" class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Dead</span>
                                 </div>
                             </td>

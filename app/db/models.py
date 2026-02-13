@@ -62,6 +62,14 @@ class CrossStatus(str, enum.Enum):
     FAILED = "failed"
 
 
+class CrossOutcomeType(str, enum.Enum):
+    """Cross outcome type enumeration."""
+
+    EPHEMERAL = "ephemeral"  # Offspring discarded after experiment
+    INTERMEDIATE = "intermediate"  # Offspring used for further crossing
+    NEW_STOCK = "new_stock"  # Offspring added permanently to stock list
+
+
 class OrgJoinRequestStatus(str, enum.Enum):
     """Organization join request status enumeration."""
 
@@ -519,6 +527,7 @@ class Stock(Base):
     # Metadata
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_placeholder: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     created_by_id: Mapped[str] = mapped_column(
         CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
@@ -675,6 +684,12 @@ class Cross(Base):
     flip_days: Mapped[int | None] = mapped_column(Integer, nullable=True, server_default="5")
     virgin_collection_days: Mapped[int | None] = mapped_column(
         Integer, nullable=True, server_default="12"
+    )
+    outcome_type: Mapped[CrossOutcomeType | None] = mapped_column(
+        Enum(CrossOutcomeType, values_callable=lambda x: [e.value for e in x]),
+        default=CrossOutcomeType.EPHEMERAL,
+        server_default="ephemeral",
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     created_by_id: Mapped[str | None] = mapped_column(
