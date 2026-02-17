@@ -96,6 +96,7 @@ def get_tenant_detail(db: Session, tenant_id: str) -> dict | None:
             User.role,
             User.status,
             User.is_active,
+            User.is_email_verified,
             User.created_at,
             User.last_login,
         )
@@ -131,6 +132,7 @@ def get_tenant_detail(db: Session, tenant_id: str) -> dict | None:
                 "role": u.role.value if u.role else None,
                 "status": u.status.value if u.status else None,
                 "is_active": u.is_active,
+                "is_email_verified": u.is_email_verified,
                 "created_at": u.created_at.isoformat() if u.created_at else None,
                 "last_login": u.last_login.isoformat() if u.last_login else None,
             }

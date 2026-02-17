@@ -55,10 +55,13 @@
             </div>
 
             <!-- Users Table -->
-            <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="bg-white rounded-lg shadow overflow-hidden" x-data="userActions()">
                 <div class="px-5 py-3 border-b border-gray-200">
                     <h3 class="text-sm font-semibold text-gray-700">Users ({{ tenant.users | length }})</h3>
                 </div>
+                <div x-show="message" x-transition class="px-5 py-2 text-sm"
+                     :class="messageOk ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'"
+                     x-text="message"></div>
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
@@ -66,6 +69,7 @@
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Verified</th>
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Last Login</th>
                         </tr>
                     </thead>
@@ -91,11 +95,25 @@
                                 <span class="text-xs text-red-500 ml-1">INACTIVE</span>
                                 {% endif %}
                             </td>
+                            <td class="px-4 py-2">
+                                {% if u.is_email_verified %}
+                                <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">YES</span>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1.5">
+                                    <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800">NO</span>
+                                    <button @click="resend('{{ u.id }}')" :disabled="sending === '{{ u.id }}'"
+                                            class="text-xs text-amber-600 hover:text-amber-800 underline disabled:opacity-50 disabled:no-underline">
+                                        <span x-show="sending !== '{{ u.id }}'">Resend</span>
+                                        <span x-show="sending === '{{ u.id }}'">Sending...</span>
+                                    </button>
+                                </span>
+                                {% endif %}
+                            </td>
                             <td class="px-4 py-2 text-sm text-gray-400">{{ u.last_login[:10] if u.last_login else 'Never' }}</td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="px-4 py-4 text-center text-gray-400 text-sm">No users.</td>
+                            <td colspan="6" class="px-4 py-4 text-center text-gray-400 text-sm">No users.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -156,6 +174,29 @@
 
 {% block scripts %}
 <script>
+function userActions() {
+    return {
+        sending: null,
+        message: '',
+        messageOk: false,
+        async resend(userId) {
+            this.sending = userId;
+            this.message = '';
+            try {
+                const res = await fetch(`/api/users/${userId}/resend-verification`, { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Request failed');
+                this.messageOk = true;
+                this.message = data.message;
+            } catch (e) {
+                this.messageOk = false;
+                this.message = e.message;
+            }
+            this.sending = null;
+        }
+    };
+}
+
 function tenantEditor() {
     return {
         form: {

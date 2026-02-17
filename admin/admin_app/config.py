@@ -25,5 +25,8 @@ class Settings(BaseSettings):
     db_password: str = ""
     db_name: str = "flystocks"
 
+    # Public base URL of the main flyRoom app (for verification email links)
+    app_base_url: str = "https://app.flyroom.net"
+
 
 settings = Settings()

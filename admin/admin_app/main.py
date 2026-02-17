@@ -206,6 +206,38 @@ def api_tenant_users(
     return detail["users"]
 
 
+@app.post("/api/users/{user_id}/resend-verification")
+def api_resend_verification(
+    user_id: str, admin: str = Depends(require_admin), db: Session = Depends(get_db)
+):
+    import httpx
+
+    from app.db.models import User
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return JSONResponse({"error": "User not found"}, status_code=404)
+    if user.is_email_verified:
+        return JSONResponse({"error": "Email already verified"}, status_code=400)
+
+    # Call the main app's resend-verification endpoint internally
+    try:
+        resp = httpx.post(
+            "http://flyroom-app:8000/api/auth/resend-verification",
+            json={"email": user.email},
+            timeout=15,
+        )
+        data = resp.json()
+    except Exception as e:
+        return JSONResponse({"error": f"Failed to contact app: {e}"}, status_code=502)
+
+    if not resp.is_success:
+        return JSONResponse(
+            {"error": data.get("detail", "Send failed")}, status_code=resp.status_code
+        )
+    return {"message": f"Verification email sent to {user.email}"}
+
+
 @app.get("/api/geography/tenants")
 def api_geography(admin: str = Depends(require_admin), db: Session = Depends(get_db)):
     from app.db.models import Tenant
