@@ -1,6 +1,27 @@
-# Cross Outcome Type Feature
+# Move Admin Panel into Settings Tab
 
 ## Current Task
+Merge standalone Admin page into Settings as a 4th tab, visible only to admin users.
+
+**Date Started:** 2026-02-16
+**Date Completed:** 2026-02-16
+**Status:** Complete
+
+### Changes Made
+- [x] Added "Admin" tab to settings.html (4th tab, admin-only via Jinja2 conditional)
+- [x] Moved Team Management section (invite, approve/reject, invitations) into admin tab
+- [x] Moved Backup & Restore section (export/import) into admin tab
+- [x] Added `teamManagement()` and `backupRestore()` Alpine.js functions to settings.html
+- [x] Passed `has_organization` to settings template context
+- [x] Changed `/admin` route to redirect to `/settings#admin` (backward compatibility)
+- [x] Removed Admin link from navbar dropdown
+- [x] All 439 tests pass (11 skipped)
+
+---
+
+# Cross Outcome Type Feature
+
+## Previous Task
 Add outcome_type (ephemeral/intermediate/new_stock) to crosses with auto-created placeholder offspring stocks.
 
 **Date Started:** 2026-02-13
