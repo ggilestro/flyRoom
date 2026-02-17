@@ -387,9 +387,9 @@ async def get_invitation_link(
     current_user: CurrentAdmin,
     service: Annotated[AuthService, Depends(get_service)],
 ):
-    """Get the invitation link for the organization.
+    """Get the invitation link and regenerate it for single-use security.
 
-    Only admins can access this endpoint.
+    Each call returns a fresh link and invalidates the previous one.
 
     Args:
         request: FastAPI request object.
@@ -401,11 +401,12 @@ async def get_invitation_link(
     """
     base_url = str(request.base_url).rstrip("/")
     url = service.get_invitation_link(current_user.tenant, base_url)
+    token = current_user.tenant.invitation_token
 
-    return InvitationResponse(
-        invitation_url=url,
-        token=current_user.tenant.invitation_token,
-    )
+    # Regenerate immediately so the link is single-use
+    service.regenerate_invitation_token(current_user.tenant)
+
+    return InvitationResponse(invitation_url=url, token=token)
 
 
 @router.post("/invitation-link/regenerate", response_model=InvitationResponse)

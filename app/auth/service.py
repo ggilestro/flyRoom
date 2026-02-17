@@ -355,6 +355,8 @@ class AuthService:
             tenant = self._find_tenant_by_invitation_token(data.invitation_token)
             if tenant:
                 auto_approve = True
+                # Regenerate token so the link is single-use
+                self.regenerate_invitation_token(tenant)
             else:
                 raise ValueError("Invalid or expired invitation link.")
 
