@@ -453,81 +453,6 @@
     <!-- Admin Tab (admin only) -->
     {% if current_user and current_user.role.value == 'admin' %}
     <div x-show="activeTab === 'admin'" x-cloak class="space-y-6">
-        <!-- Plan & Usage -->
-        <div class="bg-white shadow rounded-lg p-6" x-data="planUsage()" x-init="loadPlan()">
-            <h2 class="text-lg font-medium text-gray-900 mb-4">Plan & Usage</h2>
-
-            <template x-if="loading">
-                <div class="animate-pulse space-y-3">
-                    <div class="h-4 bg-gray-200 rounded w-1/3"></div>
-                    <div class="h-4 bg-gray-200 rounded w-1/2"></div>
-                </div>
-            </template>
-
-            <template x-if="!loading && plan">
-                <div class="space-y-4">
-                    <!-- Plan badge + status -->
-                    <div class="flex items-center gap-3 flex-wrap">
-                        <span class="inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold"
-                              :class="{
-                                  'bg-gray-100 text-gray-800': plan.tier === 'free',
-                                  'bg-gray-100 text-gray-800': plan.tier === 'light',
-                                  'bg-primary-100 text-primary-800': plan.tier === 'pro',
-                                  'bg-amber-100 text-amber-800': plan.tier === 'life'
-                              }"
-                              x-text="plan.tier_display + ' Plan'"></span>
-                        <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-                              :class="{
-                                  'bg-blue-100 text-blue-800': plan.subscription_status === 'trialing',
-                                  'bg-green-100 text-green-800': plan.subscription_status === 'active',
-                                  'bg-yellow-100 text-yellow-800': plan.subscription_status === 'past_due',
-                                  'bg-red-100 text-red-800': plan.subscription_status === 'cancelled'
-                              }"
-                              x-text="statusLabel"></span>
-                    </div>
-
-                    <!-- Trial info -->
-                    <template x-if="plan.is_trialing && plan.trial_ends_at">
-                        <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
-                            <p class="text-sm text-blue-800">
-                                <span class="font-medium">Free trial</span> &mdash;
-                                <span x-text="trialDaysLeft + ' days remaining'"></span>
-                                <span class="text-blue-600 text-xs ml-1" x-text="'(ends ' + new Date(plan.trial_ends_at).toLocaleDateString() + ')'"></span>
-                            </p>
-                            <p class="text-xs text-blue-600 mt-1">During your trial you have full Pro-level access with unlimited users.</p>
-                        </div>
-                    </template>
-
-                    <!-- User count + progress bar (only for Light plan, non-trialing) -->
-                    <template x-if="plan.max_users !== null">
-                        <div>
-                            <div class="flex justify-between text-sm text-gray-600 mb-1">
-                                <span>Users</span>
-                                <span x-text="plan.current_users + ' / ' + plan.max_users"></span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2.5">
-                                <div class="h-2.5 rounded-full transition-all"
-                                     :class="usagePercent >= 100 ? 'bg-red-500' : usagePercent >= 80 ? 'bg-yellow-500' : 'bg-primary-500'"
-                                     :style="'width: ' + Math.min(usagePercent, 100) + '%'"></div>
-                            </div>
-                        </div>
-                    </template>
-
-                    <!-- Unlimited users note (Pro or trialing) -->
-                    <template x-if="plan.max_users === null">
-                        <p class="text-sm text-gray-500">
-                            <span x-text="plan.current_users"></span> users &mdash; unlimited on your current plan.
-                        </p>
-                    </template>
-
-                    <!-- Change plan CTA -->
-                    <p class="text-sm text-gray-500 pt-2 border-t border-gray-100">
-                        Need to change your plan? <a href="#plans" @click.prevent="$dispatch('switch-tab', 'plans')" class="text-primary-600 hover:text-primary-500 font-medium cursor-pointer">View plans</a>
-                    </p>
-                </div>
-            </template>
-        </div>
-
         <!-- Flip Tracking Settings -->
         <div class="bg-white shadow rounded-lg p-6" x-data="flipSettings()" x-init="loadSettings()">
             <h2 class="text-lg font-medium text-gray-900 mb-4">Flip Tracking Settings</h2>
@@ -1134,7 +1059,13 @@
                 <h2 class="text-lg font-medium text-gray-900">Plans & Pricing</h2>
                 <p class="mt-1 text-sm text-gray-500">Choose the plan that fits your lab. All plans include core stock management features.</p>
 
-                {% if current_user.tenant and current_user.tenant.subscription_status.value == 'trialing' %}
+                {% if current_user.tenant and current_user.tenant.plan.value == 'life' %}
+                <div class="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
+                    <p class="text-sm text-amber-800">
+                        <span class="font-semibold">You're on the Life plan</span> &mdash; unlimited users, stocks, and all features included.
+                    </p>
+                </div>
+                {% elif current_user.tenant and current_user.tenant.subscription_status.value == 'trialing' %}
                 <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
                     <p class="text-sm text-blue-800">
                         <span class="font-semibold">You're on a free trial of Pro</span>
@@ -1220,7 +1151,7 @@
                                 <span class="text-3xl font-bold text-gray-900" x-text="symbols[currency] + prices.light[currency].yearly"></span>
                                 <span class="text-sm text-gray-500">/year</span>
                             </div>
-                            <p class="text-xs text-gray-400 mt-1" x-text="symbols[currency] + prices.light[currency].monthly + '/mo billed monthly'"></p>
+                            <p class="text-xs text-gray-400 mt-1">Billed annually</p>
                         </div>
                         <ul class="space-y-2.5 text-sm text-gray-600 mb-8 flex-1">
                             <li class="flex items-start gap-2">
@@ -1276,7 +1207,7 @@
                                 <span class="text-3xl font-bold text-gray-900" x-text="symbols[currency] + prices.pro[currency].yearly"></span>
                                 <span class="text-sm text-gray-500">/year</span>
                             </div>
-                            <p class="text-xs text-gray-400 mt-1" x-text="symbols[currency] + prices.pro[currency].monthly + '/mo billed monthly'"></p>
+                            <p class="text-xs text-gray-400 mt-1">Billed annually</p>
                         </div>
                         <ul class="space-y-2.5 text-sm text-gray-600 mb-8 flex-1">
                             <li class="flex items-start gap-2">
@@ -1929,49 +1860,6 @@ function printAgentsSettings() {
                 setTimeout(() => this.testLabelMessage = '', 5000);
             } finally {
                 this.testLabelLoading = false;
-            }
-        }
-    }
-}
-
-function planUsage() {
-    return {
-        plan: null,
-        loading: true,
-
-        get statusLabel() {
-            const labels = {
-                trialing: 'Trial',
-                active: 'Active',
-                past_due: 'Past Due',
-                cancelled: 'Cancelled'
-            };
-            return labels[this.plan?.subscription_status] || this.plan?.subscription_status;
-        },
-
-        get trialDaysLeft() {
-            if (!this.plan?.trial_ends_at) return 0;
-            const now = new Date();
-            const end = new Date(this.plan.trial_ends_at);
-            return Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
-        },
-
-        get usagePercent() {
-            if (!this.plan?.max_users) return 0;
-            return Math.round((this.plan.current_users / this.plan.max_users) * 100);
-        },
-
-        async loadPlan() {
-            try {
-                const response = await fetch('/api/tenants/me', { credentials: 'include' });
-                if (response.ok) {
-                    const data = await response.json();
-                    this.plan = data.plan;
-                }
-            } catch (error) {
-                console.error('Error loading plan info:', error);
-            } finally {
-                this.loading = false;
             }
         }
     }
