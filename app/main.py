@@ -677,6 +677,16 @@ async def cross_detail_page(
     )
 
 
+@app.get("/plans")
+async def plans_redirect():
+    """Redirect /plans to the Plans tab in settings.
+
+    Returns:
+        RedirectResponse.
+    """
+    return RedirectResponse(url="/settings#plans", status_code=302)
+
+
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(
     request: Request,

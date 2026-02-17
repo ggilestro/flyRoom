@@ -283,7 +283,7 @@ class AuthService:
             invitation_token_created_at=datetime.now(UTC),
             city=data.city,
             country=data.country,
-            trial_ends_at=datetime.now(UTC) + timedelta(days=182),
+            trial_ends_at=datetime.now(UTC) + timedelta(days=90),
         )
 
         # Try to find or create the organization
@@ -554,7 +554,7 @@ class AuthService:
             invitation_token_created_at=datetime.now(UTC),
             city=data.city,
             country=data.country,
-            trial_ends_at=datetime.now(UTC) + timedelta(days=182),
+            trial_ends_at=datetime.now(UTC) + timedelta(days=90),
         )
         self.db.add(tenant)
         self.db.flush()

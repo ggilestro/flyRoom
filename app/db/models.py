@@ -165,6 +165,7 @@ class FlipStatus(str, enum.Enum):
 class PlanTier(str, enum.Enum):
     """Subscription plan tier enumeration."""
 
+    FREE = "free"
     LIGHT = "light"
     PRO = "pro"
     LIFE = "life"
