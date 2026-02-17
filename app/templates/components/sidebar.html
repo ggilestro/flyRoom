@@ -19,7 +19,10 @@
        x-transition:leave-end="-translate-x-full"
        class="fixed inset-y-0 left-0 z-50 w-56 bg-white shadow-lg lg:hidden">
     <div class="flex h-16 items-center justify-between px-4 border-b border-gray-200">
-        <span class="text-xl font-bold text-primary-600">{{ app_name }}</span>
+        <div class="flex items-center gap-2">
+            <img src="/static/icons/logo.svg" alt="Logo" class="h-8 w-8 flex-shrink-0">
+            <span class="text-2xl font-bold text-primary-600">{{ app_name }}</span>
+        </div>
         <button type="button" class="text-gray-500 hover:text-gray-700" @click="sidebarOpen = false">
             <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -32,7 +35,8 @@
 <!-- Desktop sidebar -->
 <aside class="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-56 lg:flex-col lg:border-r lg:border-gray-200 lg:bg-white">
     <div class="flex h-16 flex-shrink-0 items-center px-4 border-b border-gray-200">
-        <a href="/" class="text-xl font-bold text-primary-600">
+        <a href="/" class="flex items-center gap-2 text-2xl font-bold text-primary-600">
+            <img src="/static/icons/logo.svg" alt="Logo" class="h-8 w-8 flex-shrink-0">
             {{ app_name }}
         </a>
     </div>
