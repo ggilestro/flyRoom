@@ -305,6 +305,23 @@
                             <option value="public">Public</option>
                         </select>
                     </div>
+                    <!-- Share with Collaborators -->
+                    <template x-if="availableCollaborators.length > 0">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Share with Collaborators</label>
+                            <div class="border border-gray-200 rounded-md p-3 space-y-2 max-h-40 overflow-y-auto">
+                                <template x-for="collab in availableCollaborators" :key="collab.collaborator.id">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" :value="collab.collaborator.id"
+                                               x-model="formData.sharedWithTenantIds"
+                                               class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                        <span class="text-sm text-gray-700" x-text="collab.collaborator.admin_name || collab.collaborator.name"></span>
+                                        <span class="text-xs text-gray-400" x-text="collab.collaborator.name"></span>
+                                    </label>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
                     <div class="flex justify-end gap-3">
                         <button type="button" @click="closeModal()" class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
                         <button type="submit" :disabled="saving" class="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500 disabled:opacity-50">
@@ -738,14 +755,19 @@ function bulkActionsHandler() {
         availableTags: [],
         availableTrays: [],
         availableUsers: [],
+        availableCollaborators: [],
         formData: {
             visibility: 'lab_only',
             tagIds: [],
             trayId: '',
-            ownerId: ''
+            ownerId: '',
+            sharedWithTenantIds: []
         },
 
         init() {
+            // Load collaborators on init so they're ready for the visibility modal
+            this.loadCollaborators();
+
             // Listen for bulk action events
             window.addEventListener('bulk-action', (e) => {
                 this.stockIds = e.detail.stockIds;
@@ -768,7 +790,8 @@ function bulkActionsHandler() {
                 visibility: 'lab_only',
                 tagIds: [],
                 trayId: '',
-                ownerId: ''
+                ownerId: '',
+                sharedWithTenantIds: []
             };
         },
 
@@ -813,6 +836,17 @@ function bulkActionsHandler() {
             }
         },
 
+        async loadCollaborators() {
+            try {
+                const response = await fetch('/api/collaborators', { credentials: 'include' });
+                if (response.ok) {
+                    this.availableCollaborators = await response.json();
+                }
+            } catch (e) {
+                console.error('Failed to load collaborators:', e);
+            }
+        },
+
         async applyVisibility() {
             this.saving = true;
             try {
@@ -825,6 +859,19 @@ function bulkActionsHandler() {
                         visibility: this.formData.visibility
                     })
                 });
+
+                // Also apply collaborator shares if any selected
+                if (this.formData.sharedWithTenantIds.length > 0) {
+                    await fetch('/api/stocks/bulk/share', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            stock_ids: this.stockIds,
+                            shared_with_tenant_ids: this.formData.sharedWithTenantIds
+                        })
+                    });
+                }
 
                 if (response.ok) {
                     this.closeModal();

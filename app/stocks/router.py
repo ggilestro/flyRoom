@@ -14,6 +14,7 @@ from app.dependencies import CurrentTenantId, CurrentUser, get_db
 from app.stocks.schemas import (
     AdjacentStocksResponse,
     BulkOwnerUpdate,
+    BulkShareUpdate,
     BulkTagsUpdate,
     BulkTrayUpdate,
     BulkUpdateResponse,
@@ -528,6 +529,16 @@ async def bulk_update_visibility(
         BulkUpdateResponse: Update results.
     """
     return service.bulk_update_visibility(data, current_user.id)
+
+
+@router.post("/bulk/share", response_model=BulkUpdateResponse)
+async def bulk_update_shares(
+    data: BulkShareUpdate,
+    service: Annotated[StockService, Depends(get_service)],
+    current_user: CurrentUser,
+):
+    """Bulk update stock collaborator shares."""
+    return service.bulk_update_shares(data, current_user.id)
 
 
 @router.post("/bulk/add-tags", response_model=BulkUpdateResponse)

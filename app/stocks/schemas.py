@@ -84,6 +84,7 @@ class StockCreate(StockBase):
     owner_id: str | None = None  # Defaults to created_by_id
     visibility: StockVisibility = StockVisibility.LAB_ONLY
     hide_from_org: bool = False
+    shared_with_tenant_ids: list[str] = Field(default_factory=list)
 
 
 class StockUpdate(BaseModel):
@@ -105,6 +106,7 @@ class StockUpdate(BaseModel):
     owner_id: str | None = None
     visibility: StockVisibility | None = None
     hide_from_org: bool | None = None
+    shared_with_tenant_ids: list[str] | None = None
 
 
 class StockResponse(StockBase):
@@ -126,6 +128,8 @@ class StockResponse(StockBase):
     hide_from_org: bool = False
     # For cross-lab visibility
     tenant: TenantInfo | None = None
+    # Collaborator sharing
+    shared_with_tenant_ids: list[str] = Field(default_factory=list)
     # Flip tracking
     flip_status: str | None = None  # ok, warning, critical, never
     days_since_flip: int | None = None
@@ -198,6 +202,13 @@ class BulkOwnerUpdate(BaseModel):
 
     stock_ids: list[str] = Field(..., min_length=1)
     owner_id: str | None = None
+
+
+class BulkShareUpdate(BaseModel):
+    """Schema for bulk collaborator share update."""
+
+    stock_ids: list[str] = Field(..., min_length=1)
+    shared_with_tenant_ids: list[str] = Field(default_factory=list)
 
 
 class BulkUpdateResponse(BaseModel):

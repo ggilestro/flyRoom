@@ -9,6 +9,7 @@ from app.db.models import (
     Stock,
     StockRequest,
     StockRequestStatus,
+    StockShare,
     StockVisibility,
 )
 from app.requests.schemas import (
@@ -79,9 +80,18 @@ class StockRequestService:
         if stock.tenant_id == self.tenant_id:
             raise ValueError("Cannot request your own stock")
 
-        # Stock must be public for cross-lab requests
+        # Stock must be public or shared with requesting tenant
         if stock.visibility != StockVisibility.PUBLIC:
-            raise ValueError("Stock is not available for requests")
+            is_shared = (
+                self.db.query(StockShare)
+                .filter(
+                    StockShare.stock_id == data.stock_id,
+                    StockShare.shared_with_tenant_id == self.tenant_id,
+                )
+                .first()
+            )
+            if not is_shared:
+                raise ValueError("Stock is not available for requests")
 
         # Check for existing pending request
         existing = (

@@ -310,6 +310,15 @@ class Tenant(Base):
         back_populates="tenant",
         foreign_keys="OrganizationJoinRequest.tenant_id",
     )
+    collaborators_added: Mapped[list["Collaborator"]] = relationship(
+        "Collaborator",
+        foreign_keys="Collaborator.tenant_id",
+        cascade="all, delete-orphan",
+    )
+    collaborator_of: Mapped[list["Collaborator"]] = relationship(
+        "Collaborator",
+        foreign_keys="Collaborator.collaborator_id",
+    )
 
 
 class User(Base):
@@ -625,6 +634,11 @@ class Stock(Base):
         back_populates="stock",
         cascade="all, delete-orphan",
         order_by="FlipEvent.flipped_at.desc()",
+    )
+    shared_with_tenants: Mapped[list["Tenant"]] = relationship(
+        "Tenant",
+        secondary="stock_shares",
+        viewonly=True,
     )
 
 
@@ -1038,3 +1052,60 @@ class Invitation(Base):
     tenant: Mapped["Tenant"] = relationship("Tenant")
     invited_by: Mapped[Optional["User"]] = relationship("User")
     organization: Mapped[Optional["Organization"]] = relationship("Organization")
+
+
+class StockShare(Base):
+    """Association table for sharing stocks with collaborator tenants."""
+
+    __tablename__ = "stock_shares"
+
+    stock_id: Mapped[str] = mapped_column(
+        CHAR(36),
+        ForeignKey("stocks.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    shared_with_tenant_id: Mapped[str] = mapped_column(
+        CHAR(36),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    shared_by_id: Mapped[str | None] = mapped_column(
+        CHAR(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+
+class Collaborator(Base):
+    """Tenant-to-tenant collaborator relationship (directional)."""
+
+    __tablename__ = "collaborators"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "collaborator_id", name="uq_collaborator_pair"),
+        Index("ix_collaborators_tenant_id", "tenant_id"),
+        Index("ix_collaborators_collaborator_id", "collaborator_id"),
+    )
+
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        CHAR(36),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    collaborator_id: Mapped[str] = mapped_column(
+        CHAR(36),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_by_id: Mapped[str | None] = mapped_column(
+        CHAR(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    # Relationships
+    tenant: Mapped["Tenant"] = relationship("Tenant", foreign_keys=[tenant_id])
+    collaborator_tenant: Mapped["Tenant"] = relationship("Tenant", foreign_keys=[collaborator_id])
+    created_by: Mapped[Optional["User"]] = relationship("User")

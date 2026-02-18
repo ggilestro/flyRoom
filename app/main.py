@@ -159,6 +159,7 @@ templates.env.globals["app_llm_model"] = settings.llm_default_model
 from app.auth.router import router as auth_router
 from app.backup.router import router as backup_router
 from app.billing.router import router as billing_router
+from app.collaborators.router import router as collaborators_router
 from app.crosses.router import router as crosses_router
 from app.flips.router import router as flips_router
 from app.imports.router import router as imports_router
@@ -186,6 +187,7 @@ app.include_router(tags_router, prefix="/api/tags", tags=["tags"])
 app.include_router(flips_router, prefix="/api/flips", tags=["flips"])
 app.include_router(backup_router, prefix="/api/admin/backup", tags=["backup"])
 app.include_router(billing_router, prefix="/api/billing", tags=["billing"])
+app.include_router(collaborators_router, prefix="/api/collaborators", tags=["collaborators"])
 
 
 def get_current_user_from_cookie(

@@ -6,8 +6,10 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import (
+    Collaborator,
     FlipEvent,
     Stock,
+    StockShare,
     StockVisibility,
     Tag,
     Tenant,
@@ -136,6 +138,16 @@ class StockService:
         # Calculate flip status
         flip_status, days_since_flip, last_flip_at = self._calculate_flip_status(stock)
 
+        # For own stocks, include sharing info
+        shared_with_tenant_ids = []
+        if stock.tenant_id == self.tenant_id:
+            shares = (
+                self.db.query(StockShare.shared_with_tenant_id)
+                .filter(StockShare.stock_id == stock.id)
+                .all()
+            )
+            shared_with_tenant_ids = [s[0] for s in shares]
+
         return StockResponse(
             id=stock.id,
             stock_id=stock.stock_id,
@@ -160,9 +172,16 @@ class StockService:
             hide_from_org=stock.hide_from_org,
             is_placeholder=stock.is_placeholder,
             tenant=tenant_info,
+            shared_with_tenant_ids=shared_with_tenant_ids,
             flip_status=flip_status,
             days_since_flip=days_since_flip,
             last_flip_at=last_flip_at,
+        )
+
+    def _shared_stock_ids_subquery(self):
+        """Subquery for stock IDs shared with the current tenant."""
+        return self.db.query(StockShare.stock_id).filter(
+            StockShare.shared_with_tenant_id == self.tenant_id
         )
 
     def _build_visibility_filter(self, scope: StockScope):
@@ -174,15 +193,23 @@ class StockService:
         Returns:
             SQLAlchemy filter clause.
         """
+        shared_clause = Stock.id.in_(self._shared_stock_ids_subquery())
+
         if scope == StockScope.LAB:
-            # Only stocks from current lab
-            return Stock.tenant_id == self.tenant_id
+            # Own stocks + stocks shared with us
+            return or_(
+                Stock.tenant_id == self.tenant_id,
+                shared_clause,
+            )
         elif scope == StockScope.ORGANIZATION:
             # Stocks from current lab OR
             # (org/public visibility AND same org AND not hidden from org)
+            # OR shared with us
             if not self.organization_id:
-                # No org, fall back to lab only
-                return Stock.tenant_id == self.tenant_id
+                return or_(
+                    Stock.tenant_id == self.tenant_id,
+                    shared_clause,
+                )
             # Get all tenant IDs in same organization
             org_tenant_ids = (
                 self.db.query(Tenant.id)
@@ -197,12 +224,14 @@ class StockService:
                     Stock.visibility.in_([StockVisibility.ORGANIZATION, StockVisibility.PUBLIC]),
                     not Stock.hide_from_org,
                 ),
+                shared_clause,
             )
         else:  # PUBLIC
-            # All public stocks from any lab
+            # All public stocks from any lab + shared with us
             return or_(
                 Stock.tenant_id == self.tenant_id,
                 Stock.visibility == StockVisibility.PUBLIC,
+                shared_clause,
             )
 
     def _build_filtered_query(self, params: StockSearchParams):
@@ -558,9 +587,43 @@ class StockService:
         )
 
         self.db.add(stock)
+        self.db.flush()
+
+        # Handle collaborator shares
+        if data.shared_with_tenant_ids:
+            self._sync_stock_shares(stock.id, data.shared_with_tenant_ids, user_id)
+
         self.db.commit()
         self.db.refresh(stock)
         return stock
+
+    def _sync_stock_shares(self, stock_id: str, tenant_ids: list[str], user_id: str):
+        """Replace stock shares with given tenant IDs (validated as collaborators)."""
+        # Delete existing shares for this stock
+        self.db.query(StockShare).filter(StockShare.stock_id == stock_id).delete(
+            synchronize_session=False
+        )
+        if not tenant_ids:
+            return
+        # Validate each is an actual collaborator
+        valid_ids = {
+            r[0]
+            for r in self.db.query(Collaborator.collaborator_id)
+            .filter(
+                Collaborator.tenant_id == self.tenant_id,
+                Collaborator.collaborator_id.in_(tenant_ids),
+            )
+            .all()
+        }
+        for tid in tenant_ids:
+            if tid in valid_ids:
+                self.db.add(
+                    StockShare(
+                        stock_id=stock_id,
+                        shared_with_tenant_id=tid,
+                        shared_by_id=user_id,
+                    )
+                )
 
     def update_stock(self, stock_id: str, data: StockUpdate, user_id: str) -> Stock | None:
         """Update a stock.
@@ -636,6 +699,10 @@ class StockService:
                 .all()
             )
             stock.tags = tags
+
+        # Update collaborator shares
+        if data.shared_with_tenant_ids is not None:
+            self._sync_stock_shares(stock.id, data.shared_with_tenant_ids, user_id)
 
         stock.modified_by_id = user_id
         self.db.commit()
@@ -788,6 +855,27 @@ class StockService:
                 updated_count += 1
             else:
                 errors.append(f"Stock {stock_id} not found")
+
+        self.db.commit()
+        return BulkUpdateResponse(
+            updated_count=updated_count, failed_count=len(errors), errors=errors
+        )
+
+    def bulk_update_shares(self, data, user_id: str):
+        """Bulk update stock collaborator shares."""
+        from app.stocks.schemas import BulkUpdateResponse
+
+        updated_count = 0
+        errors = []
+
+        for sid in data.stock_ids:
+            stock = self.get_stock(sid)
+            if stock:
+                self._sync_stock_shares(stock.id, data.shared_with_tenant_ids, user_id)
+                stock.modified_by_id = user_id
+                updated_count += 1
+            else:
+                errors.append(f"Stock {sid} not found")
 
         self.db.commit()
         return BulkUpdateResponse(
