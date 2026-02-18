@@ -98,6 +98,7 @@ class ImportPhase1Result(BaseModel):
     session_id: str = ""
     trays_created: list[str] = Field(default_factory=list)
     metadata_fetched: int = 0
+    deleted_count: int = 0
 
 
 class ImportPhase2Request(BaseModel):
@@ -289,6 +290,7 @@ class ImportConfig(BaseModel):
     default_tray_type: str = "numeric"
     default_tray_max_positions: int = 100
     column_overrides: dict[str, str] = Field(default_factory=dict)
+    delete_all_before_import: bool = False
 
 
 class ImportExecuteRequest(BaseModel):

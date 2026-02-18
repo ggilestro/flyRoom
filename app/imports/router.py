@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from app.db.models import Stock, StockOrigin, StockRepository, Tag, Tray, TrayType
+from app.db.models import Stock, StockOrigin, StockRepository, Tag, Tray, TrayType, UserRole
 from app.dependencies import CurrentTenantId, CurrentUser, get_db
 from app.imports.conflict_detectors import (
     DetectionContext,
@@ -46,6 +46,7 @@ from app.imports.schemas import (
     ImportStats,
     TrayResolution,
 )
+from app.stocks.service import StockService
 
 logger = logging.getLogger(__name__)
 
@@ -1105,6 +1106,23 @@ async def execute_import_v2_phase1(
     }
     tray_column_mapped = any(m.get("target_field") == "tray_name" for m in column_mappings)
 
+    # Handle "delete all before import" option
+    deleted_count = 0
+    if config.delete_all_before_import:
+        if current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admin users can delete all stocks before import",
+            )
+        stock_service = StockService(db, str(tenant_id))
+        deleted_count = stock_service.delete_all_stocks_hard()
+        logger.info(
+            "User %s hard-deleted %d stocks for tenant %s before import",
+            current_user.id,
+            deleted_count,
+            tenant_id,
+        )
+
     # Parse file
     columns, raw_rows = _parse_file_raw(file)
 
@@ -1323,6 +1341,7 @@ async def execute_import_v2_phase1(
         session_id=session_id,
         trays_created=trays_created_names if config.auto_create_trays else [],
         metadata_fetched=metadata_fetched,
+        deleted_count=deleted_count,
     )
 
 

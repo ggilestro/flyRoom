@@ -844,6 +844,45 @@
                            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600">
                     <span class="ml-2 text-sm text-gray-700">Fetch metadata from FlyBase for repository stocks</span>
                 </label>
+
+                <!-- Admin-only: Delete all before import -->
+                <template x-if="isAdmin">
+                    <div>
+                        <label class="flex items-center">
+                            <input type="checkbox" x-model="importOptions.deleteAllBeforeImport"
+                                   @change="if (!$event.target.checked) deleteConfirmText = ''"
+                                   class="h-4 w-4 rounded border-red-300 text-red-600 focus:ring-red-600">
+                            <span class="ml-2 text-sm text-red-700 font-medium">Delete all existing stocks and start fresh</span>
+                        </label>
+
+                        <div x-show="importOptions.deleteAllBeforeImport" x-cloak class="mt-3 ml-6">
+                            <div class="rounded-md bg-red-50 border border-red-200 p-3">
+                                <div class="flex">
+                                    <svg class="h-5 w-5 text-red-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                    </svg>
+                                    <div class="ml-3">
+                                        <h3 class="text-sm font-medium text-red-800">This will permanently delete:</h3>
+                                        <ul class="mt-1 text-sm text-red-700 list-disc list-inside">
+                                            <li>All stocks in your lab</li>
+                                            <li>All crosses</li>
+                                            <li>All flip history</li>
+                                            <li>All stock shares</li>
+                                            <li>All stock requests</li>
+                                            <li>All external references</li>
+                                        </ul>
+                                        <div class="mt-3">
+                                            <label class="block text-sm font-medium text-red-800 mb-1">Type <strong>DELETE ALL</strong> to confirm:</label>
+                                            <input type="text" x-model="deleteConfirmText"
+                                                   placeholder="DELETE ALL"
+                                                   class="block w-48 rounded-md border-red-300 text-sm shadow-sm focus:border-red-500 focus:ring-red-500">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
             </div>
         </div>
 
@@ -857,15 +896,16 @@
                 Back
             </button>
             <button @click="executeImport()"
-                    :disabled="importLoading"
-                    class="inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                    :disabled="importLoading || (importOptions.deleteAllBeforeImport && deleteConfirmText !== 'DELETE ALL')"
+                    class="inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    :class="importOptions.deleteAllBeforeImport ? 'bg-red-600 hover:bg-red-500' : 'bg-primary-600 hover:bg-primary-500'">
                 <span x-show="importLoading" class="mr-2">
                     <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                 </span>
-                <span x-text="importLoading ? 'Importing...' : 'Import ' + (preview?.total_rows || 0) + ' Stocks'"></span>
+                <span x-text="importLoading ? 'Importing...' : (importOptions.deleteAllBeforeImport ? 'Delete All & Import ' : 'Import ') + (preview?.total_rows || 0) + ' Stocks'"></span>
             </button>
         </div>
     </div>
@@ -1261,6 +1301,10 @@
                 <p class="mt-1 text-sm text-gray-600" x-text="importResult?.message"></p>
 
                 <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-red-50 rounded-md p-3 text-center" x-show="importResult?.deleted_count > 0">
+                        <div class="text-2xl font-semibold text-red-600" x-text="importResult?.deleted_count || 0"></div>
+                        <div class="text-xs text-gray-500">Stocks Deleted</div>
+                    </div>
                     <div class="bg-green-50 rounded-md p-3 text-center">
                         <div class="text-2xl font-semibold text-green-600" x-text="importResult?.imported_count || 0"></div>
                         <div class="text-xs text-gray-500">Stocks Imported</div>
@@ -1321,7 +1365,10 @@ function importWizard() {
             autoCreateTrays: true,
             defaultTrayType: 'numeric',
             defaultMaxPositions: 100,
+            deleteAllBeforeImport: false,
         },
+        deleteConfirmText: '',
+        isAdmin: {{ 'true' if current_user and current_user.role.value == 'admin' else 'false' }},
         // Two-phase import state
         phase1Result: null,
         conflictResolutions: {},  // row_index -> { action, field_values }
@@ -1386,7 +1433,9 @@ function importWizard() {
                 autoCreateTrays: true,
                 defaultTrayType: 'numeric',
                 defaultMaxPositions: 100,
+                deleteAllBeforeImport: false,
             };
+            this.deleteConfirmText = '';
             this.phase1Result = null;
             this.conflictResolutions = {};
             this.phase2Loading = false;
@@ -1861,6 +1910,7 @@ function importWizard() {
                     auto_create_trays: this.importOptions.autoCreateTrays,
                     default_tray_type: this.importOptions.defaultTrayType,
                     default_tray_max_positions: parseInt(this.importOptions.defaultMaxPositions) || 100,
+                    delete_all_before_import: this.importOptions.deleteAllBeforeImport,
                 },
                 tray_resolutions: trayResolutionsList,
             };
@@ -1888,27 +1938,32 @@ function importWizard() {
                         // Set active tab to first conflict type that has rows (by primary conflict)
                         const conflictTypes = Object.keys(result.conflict_summary || {});
                         this.activeConflictTab = conflictTypes.find(type => this.getRowsForType(type).length > 0) || conflictTypes[0] || null;
+                        const deletedInfo = result.deleted_count > 0
+                            ? `Deleted ${result.deleted_count} existing stocks. ` : '';
                         document.getElementById('import-message').innerHTML = `
                             <div class="mb-4 rounded-md bg-amber-50 p-4">
                                 <p class="text-sm text-amber-700">
-                                    Imported ${result.imported_count} stocks.
+                                    ${deletedInfo}Imported ${result.imported_count} stocks.
                                     ${result.conflicting_rows.length} row(s) need your attention.
                                 </p>
                             </div>`;
                     } else {
                         // No conflicts - import complete
+                        const deletedMsg = result.deleted_count > 0
+                            ? `Deleted ${result.deleted_count} existing stocks. ` : '';
                         this.importResult = {
-                            message: `Successfully imported ${result.imported_count} stocks`,
+                            message: `${deletedMsg}Successfully imported ${result.imported_count} stocks`,
                             imported_count: result.imported_count,
                             stock_ids: result.imported_stock_ids,
                             trays_created: result.trays_created,
                             metadata_fetched: result.metadata_fetched,
+                            deleted_count: result.deleted_count || 0,
                             errors: [],
                         };
                         this.currentStep = this.getResultsStep();
                         document.getElementById('import-message').innerHTML = `
                             <div class="mb-4 rounded-md bg-green-50 p-4">
-                                <p class="text-sm text-green-700">Successfully imported ${result.imported_count} stocks!</p>
+                                <p class="text-sm text-green-700">${deletedMsg}Successfully imported ${result.imported_count} stocks!</p>
                             </div>`;
                     }
                 } else {

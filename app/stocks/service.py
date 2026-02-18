@@ -7,9 +7,13 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import (
     Collaborator,
+    Cross,
+    ExternalReference,
     FlipEvent,
     Stock,
+    StockRequest,
     StockShare,
+    StockTag,
     StockVisibility,
     Tag,
     Tenant,
@@ -727,6 +731,56 @@ class StockService:
         stock.modified_by_id = user_id
         self.db.commit()
         return True
+
+    def delete_all_stocks_hard(self) -> int:
+        """Hard-delete ALL stocks and related records for this tenant.
+
+        Deletes in FK-safe order: crosses first (RESTRICT FK), then
+        cascade-handled tables, then stocks. Uses flush() so the caller
+        can wrap delete + import in one transaction.
+
+        Returns:
+            int: Number of stocks deleted.
+        """
+        tenant_stock_ids = self.db.query(Stock.id).filter(Stock.tenant_id == self.tenant_id)
+
+        # 1. Crosses first - parent FKs have ondelete="RESTRICT"
+        self.db.query(Cross).filter(
+            (Cross.parent_female_id.in_(tenant_stock_ids))
+            | (Cross.parent_male_id.in_(tenant_stock_ids))
+        ).delete(synchronize_session=False)
+
+        # 2. Tables with ondelete="CASCADE" - delete explicitly since
+        #    bulk .delete() doesn't trigger ORM cascades
+        self.db.query(StockShare).filter(StockShare.stock_id.in_(tenant_stock_ids)).delete(
+            synchronize_session=False
+        )
+
+        self.db.query(StockTag).filter(StockTag.stock_id.in_(tenant_stock_ids)).delete(
+            synchronize_session=False
+        )
+
+        self.db.query(FlipEvent).filter(FlipEvent.stock_id.in_(tenant_stock_ids)).delete(
+            synchronize_session=False
+        )
+
+        self.db.query(ExternalReference).filter(
+            ExternalReference.stock_id.in_(tenant_stock_ids)
+        ).delete(synchronize_session=False)
+
+        self.db.query(StockRequest).filter(StockRequest.stock_id.in_(tenant_stock_ids)).delete(
+            synchronize_session=False
+        )
+
+        # 3. Stocks last
+        count = (
+            self.db.query(Stock)
+            .filter(Stock.tenant_id == self.tenant_id)
+            .delete(synchronize_session=False)
+        )
+
+        self.db.flush()
+        return count
 
     def restore_stock(self, stock_id: str, user_id: str) -> bool:
         """Restore a soft-deleted stock.
