@@ -79,6 +79,7 @@ def run_backup(db: Session) -> dict:
             f"--host={settings.db_host}",
             f"--user={settings.db_user}",
             f"--password={settings.db_password}",
+            "--skip-ssl",
             "--single-transaction",
             "--routines",
             "--triggers",

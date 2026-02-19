@@ -14,6 +14,7 @@ def stream_sql_dump(compress: bool = False) -> Generator[bytes, None, None]:
         f"--host={settings.db_host}",
         f"--user={settings.db_user}",
         f"--password={settings.db_password}",
+        "--skip-ssl",
         "--single-transaction",
         "--routines",
         "--triggers",
