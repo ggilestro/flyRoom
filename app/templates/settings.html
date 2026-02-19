@@ -20,7 +20,7 @@
                 </svg>
                 User
             </button>
-            {% if current_user and current_user.role.value == 'admin' %}
+            {% if current_user and current_user.role.value in ('admin', 'lab_manager') %}
             <button @click="activeTab = 'labels'"
                     :class="activeTab === 'labels' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
                     class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium">
@@ -126,7 +126,7 @@
     </div>
 
     <!-- Labels Tab (admin only) -->
-    {% if current_user and current_user.role.value == 'admin' %}
+    {% if current_user and current_user.role.value in ('admin', 'lab_manager') %}
     <div x-show="activeTab === 'labels'" x-cloak class="space-y-6">
         <!-- Label Settings Section -->
         <div id="label-settings" class="bg-white shadow rounded-lg p-6" x-data="labelSettings()" x-init="loadSettings()">
@@ -451,7 +451,7 @@
     {% endif %}
 
     <!-- Admin Tab (admin only) -->
-    {% if current_user and current_user.role.value == 'admin' %}
+    {% if current_user and current_user.role.value in ('admin', 'lab_manager') %}
     <div x-show="activeTab === 'admin'" x-cloak class="space-y-6">
         <!-- Flip Tracking Settings -->
         <div class="bg-white shadow rounded-lg p-6" x-data="flipSettings()" x-init="loadSettings()">
@@ -863,8 +863,8 @@
                                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500" x-text="member.email"></td>
                                     <td class="px-4 py-3 whitespace-nowrap">
                                         <span class="inline-flex rounded-full px-2 text-xs font-semibold leading-5"
-                                              :class="member.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'"
-                                              x-text="member.role"></span>
+                                              :class="(member.role === 'admin' || member.role === 'lab_manager') ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'"
+                                              x-text="member.role === 'lab_manager' ? 'Lab Manager' : member.role"></span>
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap">
                                         <span class="inline-flex rounded-full px-2 text-xs font-semibold leading-5"

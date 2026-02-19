@@ -1371,7 +1371,7 @@ function importWizard() {
             deleteAllBeforeImport: false,
         },
         deleteConfirmText: '',
-        isAdmin: {{ 'true' if current_user and current_user.role.value == 'admin' else 'false' }},
+        isAdmin: {{ 'true' if current_user and current_user.role.value in ('admin', 'lab_manager') else 'false' }},
         // Two-phase import state
         phase1Result: null,
         conflictResolutions: {},  // row_index -> { action, field_values }

@@ -80,8 +80,8 @@
                             <td class="px-4 py-2 text-sm text-gray-600">{{ u.email }}</td>
                             <td class="px-4 py-2">
                                 <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full
-                                    {% if u.role == 'admin' %}bg-amber-100 text-amber-800{% else %}bg-gray-100 text-gray-800{% endif %}">
-                                    {{ (u.role or '') | upper }}
+                                    {% if u.role in ('admin', 'lab_manager') %}bg-amber-100 text-amber-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ 'LAB MANAGER' if u.role == 'lab_manager' else (u.role or '') | upper }}
                                 </span>
                             </td>
                             <td class="px-4 py-2">

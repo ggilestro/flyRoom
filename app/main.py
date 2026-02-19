@@ -911,13 +911,13 @@ async def admin_requests_page(
     Returns:
         HTMLResponse or RedirectResponse.
     """
-    from app.db.models import UserRole
+    from app.db.models import ADMIN_ROLES
 
     current_user = get_current_user_from_cookie(db, access_token)
     if not current_user:
         return RedirectResponse(url="/login", status_code=302)
 
-    if current_user.role != UserRole.ADMIN:
+    if current_user.role not in ADMIN_ROLES:
         return RedirectResponse(url="/", status_code=302)
 
     return templates.TemplateResponse(

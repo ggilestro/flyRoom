@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from app.db.database import SessionLocal
-from app.db.models import Tenant, User, UserRole
+from app.db.models import ADMIN_ROLES, Tenant, User
 from app.email.service import get_email_service
 from app.flips.service import get_flip_service
 
@@ -73,7 +73,7 @@ def _send_tenant_reminder(db, email_service, tenant: Tenant) -> dict[str, int]:
         db.query(User)
         .filter(
             User.tenant_id == tenant.id,
-            User.role == UserRole.ADMIN,
+            User.role.in_(ADMIN_ROLES),
             User.is_active,
         )
         .all()

@@ -5,7 +5,7 @@ from typing import Any
 
 from app.crosses.service import get_cross_service
 from app.db.database import SessionLocal
-from app.db.models import Tenant, User, UserRole
+from app.db.models import ADMIN_ROLES, Tenant, User
 from app.email.service import get_email_service
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ def _send_tenant_cross_reminders(db, email_service, tenant: Tenant) -> dict[str,
         db.query(User)
         .filter(
             User.tenant_id == tenant.id,
-            User.role == UserRole.ADMIN,
+            User.role.in_(ADMIN_ROLES),
             User.is_active,
         )
         .all()

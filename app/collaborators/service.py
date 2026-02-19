@@ -14,6 +14,7 @@ from app.collaborators.schemas import (
     TenantSearchResult,
 )
 from app.db.models import (
+    ADMIN_ROLES,
     Collaborator,
     Invitation,
     InvitationStatus,
@@ -22,7 +23,6 @@ from app.db.models import (
     StockShare,
     Tenant,
     User,
-    UserRole,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ class CollaboratorService:
         """Get the admin user for a tenant."""
         return (
             self.db.query(User)
-            .filter(User.tenant_id == tenant_id, User.role == UserRole.ADMIN)
+            .filter(User.tenant_id == tenant_id, User.role.in_(ADMIN_ROLES))
             .first()
         )
 

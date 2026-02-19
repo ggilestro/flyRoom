@@ -9,7 +9,15 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from app.db.models import Stock, StockOrigin, StockRepository, Tag, Tray, TrayType, UserRole
+from app.db.models import (
+    ADMIN_ROLES,
+    Stock,
+    StockOrigin,
+    StockRepository,
+    Tag,
+    Tray,
+    TrayType,
+)
 from app.dependencies import CurrentTenantId, CurrentUser, get_db
 from app.imports.conflict_detectors import (
     DetectionContext,
@@ -1109,7 +1117,7 @@ async def execute_import_v2_phase1(
     # Handle "delete all before import" option
     deleted_count = 0
     if config.delete_all_before_import:
-        if current_user.role != UserRole.ADMIN:
+        if current_user.role not in ADMIN_ROLES:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only admin users can delete all stocks before import",

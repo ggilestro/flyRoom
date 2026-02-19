@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.db.models import UserRole
+from app.db.models import ADMIN_ROLES
 from app.flips.schemas import (
     FlipEventCreate,
     FlipEventResponse,
@@ -47,7 +47,7 @@ def get_admin_service(
     current_user=Depends(_get_current_user()),
 ) -> FlipService:
     """Get flip service for admin-only operations."""
-    if current_user.role != UserRole.ADMIN:
+    if current_user.role not in ADMIN_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",

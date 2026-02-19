@@ -8,7 +8,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.db.models import UserRole
+from app.db.models import ADMIN_ROLES
 from app.dependencies import CurrentTenantId, CurrentUser, get_db
 from app.organizations.schemas import (
     OrganizationCreate,
@@ -136,7 +136,7 @@ async def create_organization(
 
     The creating lab becomes the organization admin.
     """
-    if current_user.role != UserRole.ADMIN:
+    if current_user.role not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Only lab admins can create organizations")
 
     try:
@@ -179,7 +179,7 @@ async def create_join_request(
     tenant_id: CurrentTenantId,
 ):
     """Request to join an organization (lab admin only)."""
-    if current_user.role != UserRole.ADMIN:
+    if current_user.role not in ADMIN_ROLES:
         raise HTTPException(
             status_code=403, detail="Only lab admins can request to join organizations"
         )
@@ -248,7 +248,7 @@ async def update_tenant_geo(
     tenant_id: CurrentTenantId,
 ):
     """Update lab geographic information (admin only)."""
-    if current_user.role != UserRole.ADMIN:
+    if current_user.role not in ADMIN_ROLES:
         raise HTTPException(
             status_code=403, detail="Only lab admins can update geographic information"
         )
@@ -295,7 +295,7 @@ async def update_tenant_label_settings(
     tenant_id: CurrentTenantId,
 ):
     """Update tenant label/print settings (admin only)."""
-    if current_user.role != UserRole.ADMIN:
+    if current_user.role not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Only lab admins can update label settings")
 
     from app.db.models import Tenant
@@ -334,7 +334,7 @@ async def leave_organization(
     tenant_id: CurrentTenantId,
 ):
     """Remove lab from its organization (admin only)."""
-    if current_user.role != UserRole.ADMIN:
+    if current_user.role not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Only lab admins can leave organizations")
 
     service = TenantGeoService(db, str(tenant_id))

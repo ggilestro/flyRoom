@@ -93,8 +93,8 @@
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500" x-text="member.email"></td>
                                 <td class="px-4 py-3 whitespace-nowrap">
                                     <span class="inline-flex rounded-full px-2 text-xs font-semibold leading-5"
-                                          :class="member.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'"
-                                          x-text="member.role"></span>
+                                          :class="(member.role === 'admin' || member.role === 'lab_manager') ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'"
+                                          x-text="member.role === 'lab_manager' ? 'Lab Manager' : member.role"></span>
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap">
                                     <span class="inline-flex rounded-full px-2 text-xs font-semibold leading-5"

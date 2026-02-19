@@ -43,7 +43,11 @@ class UserRole(str, enum.Enum):
     """User role enumeration."""
 
     ADMIN = "admin"
+    LAB_MANAGER = "lab_manager"
     USER = "user"
+
+
+ADMIN_ROLES = {UserRole.ADMIN, UserRole.LAB_MANAGER}
 
 
 class UserStatus(str, enum.Enum):

@@ -11,7 +11,9 @@ def get_user_analytics(db: Session) -> dict:
     total = db.query(func.count(User.id)).scalar() or 0
     active = db.query(func.count(User.id)).filter(User.is_active.is_(True)).scalar() or 0
     verified = db.query(func.count(User.id)).filter(User.is_email_verified.is_(True)).scalar() or 0
-    admins = db.query(func.count(User.id)).filter(User.role == "admin").scalar() or 0
+    admins = (
+        db.query(func.count(User.id)).filter(User.role.in_(("admin", "lab_manager"))).scalar() or 0
+    )
 
     # Status breakdown
     status_rows = (

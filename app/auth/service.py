@@ -21,7 +21,7 @@ from app.auth.utils import (
     verify_password,
 )
 from app.billing.plans import check_user_limit
-from app.db.models import Tenant, User, UserRole, UserStatus
+from app.db.models import ADMIN_ROLES, Tenant, User, UserRole, UserStatus
 from app.email.service import get_email_service
 
 logger = logging.getLogger(__name__)
@@ -161,7 +161,7 @@ class AuthService:
             self.db.query(User)
             .filter(
                 User.email.ilike(pi_identifier),
-                User.role == UserRole.ADMIN,
+                User.role.in_(ADMIN_ROLES),
                 User.is_active,
             )
             .first()
@@ -173,7 +173,7 @@ class AuthService:
                 self.db.query(User)
                 .filter(
                     User.full_name.ilike(pi_identifier),
-                    User.role == UserRole.ADMIN,
+                    User.role.in_(ADMIN_ROLES),
                     User.is_active,
                 )
                 .first()
@@ -411,7 +411,7 @@ class AuthService:
         if not pi_user:
             pi_user = (
                 self.db.query(User)
-                .filter(User.tenant_id == tenant.id, User.role == UserRole.ADMIN)
+                .filter(User.tenant_id == tenant.id, User.role.in_(ADMIN_ROLES))
                 .first()
             )
         lab_name = pi_user.full_name if pi_user else tenant.name
