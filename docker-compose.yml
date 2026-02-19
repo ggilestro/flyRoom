@@ -68,6 +68,15 @@ services:
     command: uvicorn admin_app.main:app --host 0.0.0.0 --port 8001 --reload
     restart: unless-stopped
 
+  flyroom-www:
+    build: ./www
+    container_name: flyroom-www
+    expose:
+      - 80
+    networks:
+      - intranet
+    restart: unless-stopped
+
   flyroom-db:
     image: mariadb:10.11
     container_name: flyroom-db

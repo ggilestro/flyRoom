@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>flyRoom - Drosophila Stock Management for Research Labs</title>
+    <meta name="description" content="Modern stock management for Drosophila research labs. Track stocks, plan crosses, import from FlyBase, print labels, and collaborate across institutions.">
+    <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-white text-gray-800 antialiased">
+
+    <!-- Navigation -->
+    <nav id="navbar" class="fixed top-0 w-full bg-white/95 backdrop-blur-sm z-50 transition-shadow duration-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <a href="#" class="flex items-center gap-2">
+                    <img src="img/logo.svg" alt="flyRoom" class="h-8 w-8">
+                    <span class="text-xl font-bold text-primary-600">flyRoom</span>
+                </a>
+
+                <!-- Desktop nav links -->
+                <div class="hidden md:flex items-center gap-8">
+                    <a href="#features" class="text-gray-600 hover:text-primary-600 transition-colors text-sm font-medium">Features</a>
+                    <a href="#screenshots" class="text-gray-600 hover:text-primary-600 transition-colors text-sm font-medium">Screenshots</a>
+                    <a href="#pricing" class="text-gray-600 hover:text-primary-600 transition-colors text-sm font-medium">Pricing</a>
+                    <a href="#hardware" class="text-gray-600 hover:text-primary-600 transition-colors text-sm font-medium">Hardware</a>
+                    <a href="https://app.flyroom.net" class="bg-primary-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors">Get Started</a>
+                </div>
+
+                <!-- Mobile menu button -->
+                <button id="mobile-menu-btn" class="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100" aria-label="Toggle menu">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Mobile nav -->
+            <div id="mobile-nav" class="mobile-nav md:hidden">
+                <div class="py-3 space-y-2 border-t border-gray-100">
+                    <a href="#features" class="block px-3 py-2 text-gray-600 hover:text-primary-600 text-sm font-medium">Features</a>
+                    <a href="#screenshots" class="block px-3 py-2 text-gray-600 hover:text-primary-600 text-sm font-medium">Screenshots</a>
+                    <a href="#pricing" class="block px-3 py-2 text-gray-600 hover:text-primary-600 text-sm font-medium">Pricing</a>
+                    <a href="#hardware" class="block px-3 py-2 text-gray-600 hover:text-primary-600 text-sm font-medium">Hardware</a>
+                    <a href="https://app.flyroom.net" class="block px-3 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium text-center">Get Started</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-gradient pt-28 pb-20 md:pt-36 md:pb-28">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+                Manage Your Fly Stocks,<br class="hidden sm:block"> Not Spreadsheets
+            </h1>
+            <p class="mt-6 text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">
+                Modern stock management for <em>Drosophila</em> research labs &mdash; track stocks, plan crosses, and collaborate across institutions.
+            </p>
+            <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+                <a href="https://app.flyroom.net" class="bg-primary-600 text-white px-8 py-3.5 rounded-lg text-base font-semibold hover:bg-primary-700 transition-colors shadow-lg shadow-primary-200">
+                    Start Free
+                </a>
+                <a href="#features" class="border border-gray-300 text-gray-700 px-8 py-3.5 rounded-lg text-base font-semibold hover:bg-gray-50 transition-colors">
+                    See Features
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-20 md:py-28 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900">Everything Your Fly Lab Needs</h2>
+                <p class="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">From daily stock maintenance to cross planning, flyRoom replaces spreadsheets with purpose-built tools.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Stock Management -->
+                <div class="feature-card bg-gray-50 rounded-xl p-6">
+                    <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                        </svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Stock Management</h3>
+                    <p class="text-sm text-gray-500">Organize stocks with genotypes, sources, locations, and tags.</p>
+                </div>
+
+                <!-- Cross Planning -->
+                <div class="feature-card bg-gray-50 rounded-xl p-6">
+                    <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                        </svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Cross Planning</h3>
+                    <p class="text-sm text-gray-500">5-step guided wizard with AI-powered genotype prediction.</p>
+                </div>
+
+                <!-- FlyBase Integration -->
+                <div class="feature-card bg-gray-50 rounded-xl p-6">
+                    <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+                        </svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">FlyBase Integration</h3>
+                    <p class="text-sm text-gray-500">Search and import from 188,000+ stocks across 7 major centers.</p>
+                </div>
+
+                <!-- Flip Tracking -->
+                <div class="feature-card bg-gray-50 rounded-xl p-6">
+                    <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Flip Tracking</h3>
+                    <p class="text-sm text-gray-500">One-click flip logging with maintenance alerts and email reminders.</p>
+                </div>
+
+                <!-- Label Printing -->
+                <div class="feature-card bg-gray-50 rounded-xl p-6">
+                    <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                        </svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Label Printing</h3>
+                    <p class="text-sm text-gray-500">QR codes and barcodes with Dymo label support via desktop print agent.</p>
+                </div>
+
+                <!-- Bulk Import/Export -->
+                <div class="feature-card bg-gray-50 rounded-xl p-6">
+                    <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                        </svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Bulk Import/Export</h3>
+                    <p class="text-sm text-gray-500">Import from CSV/Excel with intelligent conflict resolution.</p>
+                </div>
+
+                <!-- Collaborator Sharing -->
+                <div class="feature-card bg-gray-50 rounded-xl p-6">
+                    <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Collaborator Sharing</h3>
+                    <p class="text-sm text-gray-500">Share stocks across labs and institutions.</p>
+                </div>
+
+                <!-- Multi-Tenant -->
+                <div class="feature-card bg-gray-50 rounded-xl p-6">
+                    <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Multi-Tenant</h3>
+                    <p class="text-sm text-gray-500">Complete data isolation with user roles and organization hierarchy.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Screenshots Section -->
+    <section id="screenshots" class="py-20 md:py-28 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900">See It in Action</h2>
+                <p class="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">A clean, intuitive interface designed for researchers, not IT departments.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Trays -->
+                <div class="screenshot-card bg-white rounded-2xl overflow-hidden shadow-md">
+                    <img src="screenshots/trays.png" alt="Tray management view" class="w-full" loading="lazy">
+                    <div class="p-5">
+                        <h3 class="font-semibold text-gray-900">Trays</h3>
+                        <p class="text-sm text-gray-500 mt-1">Organize stocks in physical trays with flip status at a glance.</p>
+                    </div>
+                </div>
+
+                <!-- Add Stock -->
+                <div class="screenshot-card bg-white rounded-2xl overflow-hidden shadow-md">
+                    <img src="screenshots/add-stock.png" alt="Add stock wizard" class="w-full" loading="lazy">
+                    <div class="p-5">
+                        <h3 class="font-semibold text-gray-900">Add Stock</h3>
+                        <p class="text-sm text-gray-500 mt-1">Guided wizard to add stocks from public repositories or your lab.</p>
+                    </div>
+                </div>
+
+                <!-- FlyBase Import -->
+                <div class="screenshot-card bg-white rounded-2xl overflow-hidden shadow-md">
+                    <img src="screenshots/flybase-import.png" alt="FlyBase stock search" class="w-full" loading="lazy">
+                    <div class="p-5">
+                        <h3 class="font-semibold text-gray-900">FlyBase Import</h3>
+                        <p class="text-sm text-gray-500 mt-1">Search 188,000+ stocks from BDSC, VDRC, Kyoto, and more.</p>
+                    </div>
+                </div>
+
+                <!-- Cross Planning -->
+                <div class="screenshot-card bg-white rounded-2xl overflow-hidden shadow-md">
+                    <img src="screenshots/cross-planning.png" alt="Cross planning wizard" class="w-full" loading="lazy">
+                    <div class="p-5">
+                        <h3 class="font-semibold text-gray-900">Cross Planning</h3>
+                        <p class="text-sm text-gray-500 mt-1">Plan crosses step-by-step with timeline management.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="py-20 md:py-28 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900">Simple, Transparent Pricing</h2>
+                <p class="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">Start free and scale as your lab grows. No credit card required.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                <!-- Free -->
+                <div class="bg-white border border-gray-200 rounded-2xl p-8">
+                    <h3 class="text-lg font-semibold text-gray-900">Free</h3>
+                    <div class="mt-4">
+                        <span class="text-4xl font-bold text-gray-900">Free</span>
+                        <span class="text-gray-500 ml-1">forever</span>
+                    </div>
+                    <ul class="mt-8 space-y-4">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="text-sm text-gray-600">Up to <strong>2 users</strong></span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="text-sm text-gray-600">Up to <strong>500 stocks</strong></span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="text-sm text-gray-600">Core features</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="text-sm text-gray-600">FlyBase import</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="text-sm text-gray-600">Label printing</span>
+                        </li>
+                    </ul>
+                    <a href="https://app.flyroom.net" class="mt-8 block text-center w-full border border-gray-300 text-gray-700 px-6 py-3 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors">
+                        Get Started
+                    </a>
+                </div>
+
+                <!-- Lite -->
+                <div class="bg-white border border-gray-200 rounded-2xl p-8">
+                    <h3 class="text-lg font-semibold text-gray-900">Lite</h3>
+                    <div class="mt-4">
+                        <span class="text-4xl font-bold text-gray-900">&pound;220</span>
+                        <span class="text-gray-500 ml-1">/year</span>
+                    </div>
+                    <ul class="mt-8 space-y-4">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="text-sm text-gray-600">Up to <strong>5 users</strong></span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="text-sm text-gray-600"><strong>Unlimited</strong> stocks</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="text-sm text-gray-600">All features</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="text-sm text-gray-600">Cross planning</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="text-sm text-gray-600">Collaborator sharing</span>
+                        </li>
+                    </ul>
+                    <a href="https://app.flyroom.net" class="mt-8 block text-center w-full border border-gray-300 text-gray-700 px-6 py-3 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors">
+                        Get Started
+                    </a>
+                </div>
+
+                <!-- Pro (Recommended) -->
+                <div class="pricing-recommended bg-white border-2 border-primary-500 rounded-2xl p-8 relative">
+                    <div class="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                        <span class="bg-primary-600 text-white text-xs font-semibold px-3 py-1 rounded-full">Recommended</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900">Pro</h3>
+                    <div class="mt-4">
+                        <span class="text-4xl font-bold text-gray-900">&pound;440</span>
+                        <span class="text-gray-500 ml-1">/year</span>
+                    </div>
+                    <ul class="mt-8 space-y-4">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="text-sm text-gray-600"><strong>Unlimited</strong> users</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="text-sm text-gray-600"><strong>Unlimited</strong> stocks</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="text-sm text-gray-600">All features</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="text-sm text-gray-600">Priority support</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="text-sm text-gray-600">AI genotype prediction</span>
+                        </li>
+                    </ul>
+                    <a href="https://app.flyroom.net" class="mt-8 block text-center w-full bg-primary-600 text-white px-6 py-3 rounded-lg text-sm font-semibold hover:bg-primary-700 transition-colors">
+                        Get Started
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Hardware Section -->
+    <section id="hardware" class="py-20 md:py-28 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900">Hardware Recommendations</h2>
+                <p class="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">Choosing the right label printer and barcode scanner for your lab.</p>
+            </div>
+
+            <!-- Label Printers -->
+            <div class="mb-16">
+                <h3 class="text-xl font-semibold text-gray-900 mb-6">Label Printers</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Dymo -->
+                    <div class="bg-white rounded-xl p-6 border border-gray-200">
+                        <h4 class="font-semibold text-gray-900">Dymo LabelWriter 400</h4>
+                        <p class="text-sm text-primary-600 font-medium mt-1">Budget-friendly, Linux/CUPS</p>
+                        <p class="text-sm text-gray-500 mt-3">Great entry-level option with direct CUPS support on Linux. Uses standard Dymo label rolls.</p>
+                        <p class="text-sm font-medium text-gray-700 mt-4">~$100&ndash;200</p>
+                    </div>
+
+                    <!-- Brother -->
+                    <div class="bg-white rounded-xl p-6 border border-gray-200">
+                        <h4 class="font-semibold text-gray-900">Brother QL-820NWB</h4>
+                        <p class="text-sm text-primary-600 font-medium mt-1">Best value, WiFi + Bluetooth</p>
+                        <p class="text-sm text-gray-500 mt-3">Wireless printing over WiFi or Bluetooth. Excellent print quality with DK label rolls.</p>
+                        <p class="text-sm font-medium text-gray-700 mt-4">~$150&ndash;350</p>
+                    </div>
+
+                    <!-- Zebra -->
+                    <div class="bg-white rounded-xl p-6 border border-gray-200">
+                        <h4 class="font-semibold text-gray-900">Zebra ZD421</h4>
+                        <p class="text-sm text-primary-600 font-medium mt-1">Enterprise-grade, ZPL support</p>
+                        <p class="text-sm text-gray-500 mt-3">Professional thermal printer with native ZPL command support. Best for high-volume labs.</p>
+                        <p class="text-sm font-medium text-gray-700 mt-4">~$300&ndash;600</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Supported Label Formats -->
+            <div class="mb-16">
+                <h3 class="text-xl font-semibold text-gray-900 mb-6">Supported Label Formats</h3>
+                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="text-left px-6 py-3 font-semibold text-gray-700">Format</th>
+                                <th class="text-left px-6 py-3 font-semibold text-gray-700">Size</th>
+                                <th class="text-left px-6 py-3 font-semibold text-gray-700">Best For</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr>
+                                <td class="px-6 py-3 text-gray-900">Dymo 11352</td>
+                                <td class="px-6 py-3 text-gray-500">25.4 &times; 54mm</td>
+                                <td class="px-6 py-3 text-gray-500">Small vial labels</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-3 text-gray-900">Dymo 99010</td>
+                                <td class="px-6 py-3 text-gray-500">28 &times; 89mm</td>
+                                <td class="px-6 py-3 text-gray-500">Standard address labels</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-3 text-gray-900">Dymo 99012</td>
+                                <td class="px-6 py-3 text-gray-500">36 &times; 89mm</td>
+                                <td class="px-6 py-3 text-gray-500">Large labels with QR</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-3 text-gray-900">Brother 29mm</td>
+                                <td class="px-6 py-3 text-gray-500">29mm continuous</td>
+                                <td class="px-6 py-3 text-gray-500">Narrow vial labels</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-3 text-gray-900">Brother 62mm</td>
+                                <td class="px-6 py-3 text-gray-500">62mm continuous</td>
+                                <td class="px-6 py-3 text-gray-500">Wide labels with details</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-3 text-gray-900">Standard 1&times;2&quot;</td>
+                                <td class="px-6 py-3 text-gray-500">25 &times; 51mm</td>
+                                <td class="px-6 py-3 text-gray-500">Generic thermal printers</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Barcode Scanners -->
+            <div class="mb-16">
+                <h3 class="text-xl font-semibold text-gray-900 mb-6">Barcode Scanners</h3>
+                <div class="bg-white rounded-xl p-6 border border-gray-200">
+                    <div class="flex flex-col md:flex-row gap-6">
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-gray-900 mb-2">Any Bluetooth Keyboard-Wedge Scanner</h4>
+                            <p class="text-sm text-gray-500">flyRoom works with any standard Bluetooth barcode scanner ($50&ndash;100). The scanner appears as a keyboard input &mdash; no drivers needed.</p>
+                            <ul class="mt-4 space-y-2">
+                                <li class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                    Supports Code128 barcodes and QR codes
+                                </li>
+                                <li class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                    Plug-and-play &mdash; no driver installation
+                                </li>
+                                <li class="flex items-center gap-2 text-sm text-gray-600">
+                                    <svg class="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                    Instant stock lookup from any page
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Print Agent -->
+            <div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-6">Print Agent (flyprint)</h3>
+                <div class="bg-white rounded-xl p-6 border border-gray-200">
+                    <p class="text-sm text-gray-500">
+                        flyRoom includes <strong class="text-gray-900">flyprint</strong>, a free desktop print agent that bridges the web app to your local label printer.
+                        It runs on Linux and Windows, connects to CUPS or native print services, and pairs with the web app automatically &mdash; zero configuration required.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-400 py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-8">
+                <!-- Logo & tagline -->
+                <div class="flex items-center gap-3">
+                    <img src="img/logo.svg" alt="flyRoom" class="h-8 w-8">
+                    <div>
+                        <span class="text-white font-semibold">flyRoom</span>
+                        <p class="text-sm text-gray-500">Stock management for <em>Drosophila</em> labs</p>
+                    </div>
+                </div>
+
+                <!-- Links -->
+                <div class="flex items-center gap-6 text-sm">
+                    <a href="#features" class="hover:text-white transition-colors">Features</a>
+                    <a href="#pricing" class="hover:text-white transition-colors">Pricing</a>
+                    <a href="https://app.flyroom.net" class="hover:text-white transition-colors">Sign In</a>
+                    <a href="https://lab.gilest.ro" class="hover:text-white transition-colors">Gilestro Lab</a>
+                </div>
+            </div>
+
+            <div class="mt-8 pt-8 border-t border-gray-800 flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
+                <p>&copy; 2026 Giorgio Gilestro. All rights reserved.</p>
+                <p>Contact: <a href="mailto:giorgio@gilest.ro" class="hover:text-white transition-colors">giorgio@gilest.ro</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Minimal JS for nav behavior -->
+    <script>
+        // Sticky nav shadow on scroll
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            navbar.classList.toggle('nav-scrolled', window.scrollY > 10);
+        });
+
+        // Mobile menu toggle
+        const menuBtn = document.getElementById('mobile-menu-btn');
+        const mobileNav = document.getElementById('mobile-nav');
+        menuBtn.addEventListener('click', () => {
+            mobileNav.classList.toggle('open');
+        });
+
+        // Close mobile nav on link click
+        mobileNav.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                mobileNav.classList.remove('open');
+            });
+        });
+    </script>
+</body>
+</html>

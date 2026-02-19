@@ -1,0 +1,79 @@
+/* flyRoom promotional website - custom styles */
+
+html {
+    scroll-behavior: smooth;
+}
+
+/* Hero gradient background */
+.hero-gradient {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 50%, #bfdbfe 100%);
+}
+
+/* Screenshot hover effect */
+.screenshot-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.screenshot-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* Feature card hover */
+.feature-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* Pricing card highlight pulse */
+.pricing-recommended {
+    box-shadow: 0 0 0 2px #3b82f6, 0 8px 32px rgba(59, 130, 246, 0.15);
+}
+
+/* Nav shadow on scroll (toggled via JS) */
+.nav-scrolled {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Smooth fade-in for sections */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-up {
+    animation: fadeInUp 0.6s ease forwards;
+}
+
+/* Screenshot gallery horizontal scroll on mobile */
+.screenshot-scroll {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+}
+
+.screenshot-scroll > * {
+    scroll-snap-align: center;
+}
+
+/* Mobile nav toggle */
+.mobile-nav {
+    transition: max-height 0.3s ease, opacity 0.2s ease;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+}
+
+.mobile-nav.open {
+    max-height: 400px;
+    opacity: 1;
+}
