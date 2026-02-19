@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from admin_app.auth import create_session_token, verify_password
+from admin_app.auth import create_session_token, hash_password, verify_password
 from admin_app.config import settings
 from admin_app.dependencies import get_db, require_admin
 from admin_app.services import backup, dashboard, export, tenants, users
@@ -144,6 +144,11 @@ def export_page(request: Request, admin: str = Depends(require_admin)):
     return templates.TemplateResponse("export.html", {"request": request, "admin": admin})
 
 
+@app.get("/settings", response_class=HTMLResponse)
+def settings_page(request: Request, admin: str = Depends(require_admin)):
+    return templates.TemplateResponse("settings.html", {"request": request, "admin": admin})
+
+
 @app.get("/backups", response_class=HTMLResponse)
 def backups_page(
     request: Request, admin: str = Depends(require_admin), db: Session = Depends(get_db)
@@ -157,6 +162,34 @@ def backups_page(
 # ---------------------------------------------------------------------------
 # JSON API
 # ---------------------------------------------------------------------------
+@app.post("/api/change-password")
+async def api_change_password(request: Request, admin: str = Depends(require_admin)):
+    body = await request.json()
+    current_password = body.get("current_password", "")
+    new_password = body.get("new_password", "")
+
+    if not current_password or not new_password:
+        return JSONResponse({"error": "Both fields are required"}, status_code=400)
+    if len(new_password) < 8:
+        return JSONResponse(
+            {"error": "New password must be at least 8 characters"}, status_code=400
+        )
+    if not verify_password(current_password, settings.admin_password_hash):
+        return JSONResponse({"error": "Current password is incorrect"}, status_code=403)
+
+    new_hash = hash_password(new_password)
+
+    # Update in-memory (takes effect immediately, lasts until container restart)
+    settings.admin_password_hash = new_hash
+
+    # Return the escaped hash so the user can update .env for persistence
+    env_hash = new_hash.replace("$", "$$")
+    return {
+        "message": "Password changed successfully",
+        "env_hash": env_hash,
+    }
+
+
 @app.get("/api/stats/overview")
 def api_overview(admin: str = Depends(require_admin), db: Session = Depends(get_db)):
     return dashboard.get_overview(db)

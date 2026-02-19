@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% set active_page = "settings" %}
+
+{% block title %}Settings{% endblock %}
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+<div class="max-w-xl">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+         x-data="{
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: '',
+            loading: false,
+            message: '',
+            error: '',
+            envHash: '',
+            async changePassword() {
+                this.message = '';
+                this.error = '';
+                this.envHash = '';
+                if (!this.currentPassword || !this.newPassword) {
+                    this.error = 'All fields are required';
+                    return;
+                }
+                if (this.newPassword.length < 8) {
+                    this.error = 'New password must be at least 8 characters';
+                    return;
+                }
+                if (this.newPassword !== this.confirmPassword) {
+                    this.error = 'New passwords do not match';
+                    return;
+                }
+                this.loading = true;
+                try {
+                    const res = await fetch('/api/change-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            current_password: this.currentPassword,
+                            new_password: this.newPassword,
+                        }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        this.error = data.error || 'Failed to change password';
+                    } else {
+                        this.message = data.message;
+                        this.envHash = data.env_hash || '';
+                        this.currentPassword = '';
+                        this.newPassword = '';
+                        this.confirmPassword = '';
+                    }
+                } catch (e) {
+                    this.error = 'Request failed';
+                } finally {
+                    this.loading = false;
+                }
+            }
+         }">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Change Password</h3>
+
+        <!-- Success message -->
+        <div x-show="message" x-cloak class="mb-4">
+            <div class="p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm"
+                 x-text="message"></div>
+
+            <!-- Show hash for .env persistence -->
+            <div x-show="envHash" class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md text-sm">
+                <p class="font-medium text-amber-800 mb-1">To persist across restarts, update your <code class="bg-amber-100 px-1 rounded">.env</code> file:</p>
+                <div class="flex items-center gap-2 mt-2">
+                    <code class="flex-1 block bg-gray-900 text-green-400 p-2 rounded text-xs break-all select-all"
+                          x-text="'ADMIN_PASSWORD_HASH=' + envHash"></code>
+                    <button type="button" @click="navigator.clipboard.writeText('ADMIN_PASSWORD_HASH=' + envHash)"
+                            class="flex-shrink-0 px-2 py-2 bg-gray-200 hover:bg-gray-300 rounded text-xs text-gray-700 transition-colors"
+                            title="Copy to clipboard">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error message -->
+        <div x-show="error" x-cloak
+             class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm"
+             x-text="error"></div>
+
+        <form @submit.prevent="changePassword()" class="space-y-4">
+            <div>
+                <label for="current_password" class="block text-sm font-medium text-gray-700 mb-1">
+                    Current Password
+                </label>
+                <input type="password" id="current_password" x-model="currentPassword" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 text-sm">
+            </div>
+
+            <div>
+                <label for="new_password" class="block text-sm font-medium text-gray-700 mb-1">
+                    New Password
+                </label>
+                <input type="password" id="new_password" x-model="newPassword" required minlength="8"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 text-sm">
+                <p class="mt-1 text-xs text-gray-500">Minimum 8 characters</p>
+            </div>
+
+            <div>
+                <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm New Password
+                </label>
+                <input type="password" id="confirm_password" x-model="confirmPassword" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 text-sm">
+            </div>
+
+            <button type="submit" :disabled="loading"
+                    class="w-full px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:opacity-50 text-sm font-medium transition-colors">
+                <span x-show="!loading">Change Password</span>
+                <span x-show="loading">Changing...</span>
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

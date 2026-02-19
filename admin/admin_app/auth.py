@@ -15,6 +15,11 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
+def hash_password(plain: str) -> str:
+    """Hash a plain password with bcrypt."""
+    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt(rounds=12)).decode()
+
+
 def create_session_token(username: str) -> str:
     """Create a signed session token."""
     return _serializer.dumps({"user": username})
