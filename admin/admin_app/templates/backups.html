@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% set active_page = "backups" %}
+{% block title %}Backups{% endblock %}
+{% block page_title %}Database Backups{% endblock %}
+
+{% block content %}
+<div x-data="backupsPage()" class="space-y-6">
+    <!-- Run Backup -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-sm font-semibold text-gray-700">Run Backup</h3>
+                <p class="text-sm text-gray-500 mt-1">
+                    Create an encrypted database backup and upload to Cloudflare R2.
+                </p>
+            </div>
+            <button @click="runBackup()" :disabled="running"
+                    class="px-5 py-2.5 bg-amber-600 text-white rounded text-sm font-medium hover:bg-amber-500 transition-colors disabled:opacity-50">
+                <span x-show="!running">Run Backup Now</span>
+                <span x-show="running">Running...</span>
+            </button>
+        </div>
+        <!-- Result message -->
+        <div x-show="message" x-transition class="mt-4">
+            <div :class="messageType === 'success'
+                    ? 'bg-green-50 border-green-200 text-green-800'
+                    : 'bg-red-50 border-red-200 text-red-800'"
+                 class="border rounded-lg px-4 py-3 text-sm">
+                <span x-text="message"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backup History -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-sm font-semibold text-gray-700">Backup History</h3>
+        </div>
+        {% if backups %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filename</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for b in backups %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {{ b.created_at[:19] | replace('T', ' ') if b.created_at else '—' }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 font-mono text-xs">
+                            {{ b.filename }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {% if b.size_bytes >= 1048576 %}
+                                {{ '%.1f' | format(b.size_bytes / 1048576) }} MB
+                            {% elif b.size_bytes >= 1024 %}
+                                {{ '%.1f' | format(b.size_bytes / 1024) }} KB
+                            {% else %}
+                                {{ b.size_bytes }} B
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {{ '%.1f' | format(b.duration_seconds) }}s
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if b.status == 'success' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Success</span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"
+                                      title="{{ b.error_message or '' }}">Failed</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            {% if b.status == 'success' %}
+                                <a href="/api/backup/download/{{ b.filename }}"
+                                   class="text-amber-600 hover:text-amber-500 font-medium">Download</a>
+                            {% else %}
+                                <span class="text-gray-400">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="px-6 py-12 text-center text-sm text-gray-500">
+            No backups yet. Click "Run Backup Now" to create the first one.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function backupsPage() {
+    return {
+        running: false,
+        message: '',
+        messageType: 'success',
+        async runBackup() {
+            this.running = true;
+            this.message = '';
+            try {
+                const resp = await fetch('/api/backup/run', { method: 'POST' });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    throw new Error(data.error || data.detail || 'Backup failed');
+                }
+                const b = data.backup;
+                if (b.status === 'success') {
+                    const sizeMB = (b.size_bytes / 1048576).toFixed(1);
+                    this.message = `Backup completed: ${b.filename} (${sizeMB} MB, ${b.duration_seconds}s). Pruned ${data.pruned} old backup(s).`;
+                    this.messageType = 'success';
+                } else {
+                    this.message = `Backup failed: ${b.error_message}`;
+                    this.messageType = 'error';
+                }
+                // Reload to show new entry in table
+                setTimeout(() => location.reload(), 1500);
+            } catch (e) {
+                this.message = e.message;
+                this.messageType = 'error';
+            } finally {
+                this.running = false;
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

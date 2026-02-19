@@ -21,7 +21,9 @@ RUN pip install --no-cache-dir \
     "bcrypt>=4.0.0" \
     "python-multipart>=0.0.6" \
     "pydantic-settings>=2.0.0" \
-    "httpx>=0.25.0"
+    "httpx>=0.25.0" \
+    "boto3>=1.34.0" \
+    "cryptography>=42.0.0"
 
 # Copy admin application code
 COPY admin/admin_app/ ./admin_app/

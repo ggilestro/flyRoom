@@ -3,8 +3,14 @@
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Form, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
+from fastapi import Depends, FastAPI, Form, Header, Query, Request
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -12,7 +18,7 @@ from sqlalchemy.orm import Session
 from admin_app.auth import create_session_token, verify_password
 from admin_app.config import settings
 from admin_app.dependencies import get_db, require_admin
-from admin_app.services import dashboard, export, tenants, users
+from admin_app.services import backup, dashboard, export, tenants, users
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -136,6 +142,16 @@ def geography_page(request: Request, admin: str = Depends(require_admin)):
 @app.get("/export", response_class=HTMLResponse)
 def export_page(request: Request, admin: str = Depends(require_admin)):
     return templates.TemplateResponse("export.html", {"request": request, "admin": admin})
+
+
+@app.get("/backups", response_class=HTMLResponse)
+def backups_page(
+    request: Request, admin: str = Depends(require_admin), db: Session = Depends(get_db)
+):
+    backups_list = backup.list_backups(db)
+    return templates.TemplateResponse(
+        "backups.html", {"request": request, "admin": admin, "backups": backups_list}
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -284,4 +300,50 @@ def api_export_sql(
         export.stream_sql_dump(compress=compress),
         media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Backup API
+# ---------------------------------------------------------------------------
+def _check_backup_auth(request: Request, x_cron_secret: str | None = Header(None)):
+    """Allow access via cron secret header OR admin session cookie."""
+    if (
+        x_cron_secret
+        and settings.backup_cron_secret
+        and x_cron_secret == settings.backup_cron_secret
+    ):
+        return "cron"
+    # Fall back to admin session auth
+    return require_admin(request)
+
+
+@app.post("/api/backup/run")
+def api_backup_run(
+    request: Request,
+    db: Session = Depends(get_db),
+    x_cron_secret: str | None = Header(None),
+):
+    _check_backup_auth(request, x_cron_secret)
+    result = backup.run_backup(db)
+    pruned = backup.prune_old_backups(db)
+    return {"backup": result, "pruned": pruned}
+
+
+@app.get("/api/backup/download/{filename}")
+def api_backup_download(
+    filename: str,
+    admin: str = Depends(require_admin),
+):
+    try:
+        decrypted = backup.download_backup(filename)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+    # Strip .enc suffix for the download name
+    download_name = filename.removesuffix(".enc") if filename.endswith(".enc") else filename
+    return Response(
+        content=decrypted,
+        media_type="application/gzip",
+        headers={"Content-Disposition": f'attachment; filename="{download_name}"'},
     )

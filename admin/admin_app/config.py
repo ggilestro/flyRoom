@@ -28,5 +28,14 @@ class Settings(BaseSettings):
     # Public base URL of the main flyRoom app (for verification email links)
     app_base_url: str = "https://app.flyroom.net"
 
+    # Backup / Cloudflare R2
+    r2_endpoint_url: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    r2_bucket_name: str = "flyroom-backups"
+    backup_retention_days: int = 30
+    backup_cron_secret: str = ""
+    backup_encryption_key: str = ""  # base64-encoded 32-byte AES key (required)
+
 
 settings = Settings()

@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     DateTime,
     Enum,
@@ -1110,3 +1111,17 @@ class Collaborator(Base):
     tenant: Mapped["Tenant"] = relationship("Tenant", foreign_keys=[tenant_id])
     collaborator_tenant: Mapped["Tenant"] = relationship("Tenant", foreign_keys=[collaborator_id])
     created_by: Mapped[Optional["User"]] = relationship("User")
+
+
+class BackupLog(Base):
+    """Backup log entry tracking automated database backups to R2."""
+
+    __tablename__ = "backup_logs"
+
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=generate_uuid)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    duration_seconds: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)  # "success" or "failed"
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
