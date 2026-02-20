@@ -574,6 +574,9 @@
         </div>
     </footer>
 
+    <!-- Lightbox overlay -->
+    <div id="lightbox" class="lightbox"><img src="" alt=""></div>
+
     <!-- Minimal JS for nav behavior -->
     <script>
         // Sticky nav shadow on scroll
@@ -609,6 +612,21 @@
                 document.getElementById('hw-desktop').classList.toggle('hidden', target !== 'hw-desktop');
                 document.getElementById('hw-android').classList.toggle('hidden', target !== 'hw-android');
             });
+        });
+
+        // Screenshot lightbox
+        const lightbox = document.getElementById('lightbox');
+        const lightboxImg = lightbox.querySelector('img');
+        document.querySelectorAll('.screenshot-card img').forEach(img => {
+            img.addEventListener('click', () => {
+                lightboxImg.src = img.src;
+                lightboxImg.alt = img.alt;
+                lightbox.classList.add('open');
+            });
+        });
+        lightbox.addEventListener('click', () => lightbox.classList.remove('open'));
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') lightbox.classList.remove('open');
         });
     </script>
 </body>
