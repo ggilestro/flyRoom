@@ -1,5 +1,23 @@
 # Lessons Learned
 
+## 2026-02-21: CI/CD Failures — Rate Limiters, Black, and Ruff
+
+### Module-Level Rate Limiters Poison Tests
+- **Issue**: `strict_limiter = RateLimiter(max_requests=5)` is a module-level singleton. Since all TestClient requests come from the same IP ("testclient"), rate limit state accumulates across tests. The 6th call to `/api/auth/register` across separate test functions hit 429.
+- **Fix**: Added `RateLimiter.reset()` method and an `autouse=True` fixture in `conftest.py` that clears both `auth_limiter` and `strict_limiter` before every test.
+- **Rule**: Any module-level stateful singleton (rate limiters, caches, session stores) must be reset between tests via an autouse fixture.
+
+### Always Run Black + Ruff Before Pushing
+- **Issue**: Black and Ruff formatting/lint failures only showed up in CI, not caught locally before push.
+- **Fix sequence**: Run `black <files>` then `ruff check .` before committing.
+- **Ruff I001**: Import blocks must be alphabetically sorted. When adding a new router import to `main.py`, insert it in the correct alphabetical position (e.g., `dashboard` goes after `crosses`, not after `backup`).
+- **Rule**: Before any push, run: `black . && ruff check .` to match what CI does.
+
+### CI Has 3 Jobs — All Must Pass
+- **test**: pytest with MariaDB (not SQLite) — different DB behaviors possible
+- **lint**: Black formatting + Ruff linting (import order, unused imports, etc.)
+- **docker**: Build + smoke test — catches missing dependencies or broken Dockerfile
+
 ## 2026-02-11: SQLite DateTime Comparison Gotcha
 
 ### SQLAlchemy + SQLite Datetime Serialization Mismatch
