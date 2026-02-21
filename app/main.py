@@ -175,10 +175,10 @@ templates.env.globals["app_llm_model"] = settings.llm_default_model
 # Import and include routers
 from app.auth.router import router as auth_router
 from app.backup.router import router as backup_router
-from app.dashboard.router import router as dashboard_router
 from app.billing.router import router as billing_router
 from app.collaborators.router import router as collaborators_router
 from app.crosses.router import router as crosses_router
+from app.dashboard.router import router as dashboard_router
 from app.flips.router import router as flips_router
 from app.imports.router import router as imports_router
 from app.labels.router import router as labels_router
